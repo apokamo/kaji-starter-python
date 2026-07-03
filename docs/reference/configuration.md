@@ -14,7 +14,7 @@ kaji の repository 共通設定。設定仕様の正本は kaji 本体の
 | `execution.default_timeout` | `2400` | step あたりの timeout 秒 |
 | `execution.agent_runner` | `headless` | `interactive_terminal` に変えると tmux pane で agent が動く（tmux 3.1+ 必須） |
 | `provider.type` | `github` | repository 既定の provider |
-| `provider.github.repo` | `<owner>/<repo>` | **template 利用時に必ず書き換える** |
+| `provider.github.repo` | `<owner>/<repo>` | **template 利用時に必ず書き換え、workflow を回す前に commit する**（未 commit のまま実行すると設定変更が最初の feature PR に混入する） |
 | `provider.github.default_branch` | `main` | |
 | `provider.github.git_remote` | `origin` | skill 内 git push / fetch の対象 remote |
 

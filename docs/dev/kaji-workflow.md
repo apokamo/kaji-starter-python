@@ -2,6 +2,11 @@
 
 workflow 5 本の使い分け・skill lifecycle・完了確認の分担。
 
+## 初回セットアップ（template から作った直後に一度だけ）
+
+1. `.kaji/config.toml` の `provider.github.repo` を自分の repo に書き換え、`git commit` して main へ反映する（未 commit のまま workflow を回すと最初の feature PR に混入する）
+2. `scripts/setup_labels.sh` で workflow が使う `type:*` ラベルを作成する（GitHub ラベルは template 複製されないため）。local provider のみで使う場合は不要
+
 ## workflow 5 本の使い分け
 
 | workflow | provider | 用途 |

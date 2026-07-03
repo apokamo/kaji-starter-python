@@ -19,21 +19,30 @@ agent CLI（既定は [Claude Code](https://claude.com/claude-code)。codex / ge
 ```bash
 # 1. GitHub 上で「Use this template」から自分の repository を作成して clone
 
-# 2. 最小の書き換え
+# 2. 初回セットアップ commit（workflow を回す前に main へ反映する）
 #    - .kaji/config.toml: [provider.github] repo = "<owner>/<repo>" を自分の repo に
 #    - （任意）pyproject.toml の project name と src/starter_app/ の rename
+git add -A && git commit -m "chore: initial setup"
+#    ↑ 未 commit のまま workflow を回すと、この設定変更が最初の feature PR に混入する
 
 # 3. セットアップと品質ゲート確認
 uv sync
 source .venv/bin/activate && make check   # 作成直後にパスする
 
-# 4. GitHub 認証と最初の workflow 実行
+# 4. GitHub 認証とラベル作成
 gh auth status
+scripts/setup_labels.sh                    # workflow が使う type:* ラベルを作成（初回のみ）
+
+# 5. 最初の workflow 実行
 uv run kaji issue create --title "..." --body-file issue.md --label type:feature
 uv run kaji run .kaji/wf/dev.yaml <issue-id>
 ```
 
-GitHub 連携なしで試す場合は local provider を使う（issue は local provider 配下で作成する）:
+GitHub ラベル（`type:*`）は template では複製されないため、`scripts/setup_labels.sh` で
+一度だけ作成する（workflow の起票がこのラベルに依存する）。
+
+GitHub 連携なしで試す場合は local provider を使う（issue は local provider 配下で作成する。
+ラベル作成は不要）:
 
 ```bash
 uv run kaji local init
