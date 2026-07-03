@@ -33,16 +33,17 @@ uv run kaji issue create --title "..." --body-file issue.md --label type:feature
 uv run kaji run .kaji/wf/dev.yaml <issue-id>
 ```
 
-GitHub 連携なしで試す場合は local provider を使う:
+GitHub 連携なしで試す場合は local provider を使う（issue は local provider 配下で作成する）:
 
 ```bash
 uv run kaji local init
+uv run kaji issue create --title "..." --body-file issue.md --label type:feature
 uv run kaji run .kaji/wf/dev-local.yaml <issue-id>
 ```
 
 ## Documentation
 
-- セットアップ詳細・開発の進め方・カスタマイズ:
-  [kaji 本体の利用ガイド](https://github.com/apokamo/kaji/blob/main/docs/guides/python-starter.md)
+- セットアップ詳細・開発の進め方・カスタマイズ: kaji 本体の利用ガイド（準備中。
+  進捗は [apokamo/kaji#242](https://github.com/apokamo/kaji/issues/242) を参照）
 - この repository の開発規約: [docs/README.md](docs/README.md)
 - agent 向け instructions: [AGENTS.md](AGENTS.md)
