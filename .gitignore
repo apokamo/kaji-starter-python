@@ -30,6 +30,9 @@ secrets/
 # kaji — run ログ（肥大化するため tracked にしない）
 .kaji/artifacts/
 
+# ログファイル全般（stray な *.log が issue-close の安全ガードを誤発火させないため）
+*.log
+
 # kaji local mode — per-machine counter（commit すると番号空間が汚染される）
 .kaji/counters/
 
