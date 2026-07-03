@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# Testing / type checking
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Environment / secrets
+.env
+.env.local
+secrets/
+
+# kaji — run ログ（肥大化するため tracked にしない）
+.kaji/artifacts/
+
+# kaji local mode — per-machine counter（commit すると番号空間が汚染される）
+.kaji/counters/
+
+# kaji local mode — per-machine config overlay（`kaji local init` が生成・gitignore 追記する）
+.kaji/config.local.toml
+
+# kaji local mode — provider cache
+.kaji/cache/
+
+# NOTE: .kaji/issues/ は tracked（local provider 利用時の Issue 永続化に必要）
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code — runtime lock files
+.claude/*.lock
+
+# Working scratch space
+tmp/

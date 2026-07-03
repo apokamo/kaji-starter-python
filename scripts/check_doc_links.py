@@ -1,0 +1,393 @@
+#!/usr/bin/env python3
+"""Markdown link validator.
+
+Checks that relative Markdown links resolve to existing files
+and that fragment identifiers reference existing headings.
+
+Usage:
+    python3 scripts/check_doc_links.py              # Check docs/ directory
+    python3 scripts/check_doc_links.py <path>...     # Check specific files/dirs
+"""
+
+from __future__ import annotations
+
+import re
+import sys
+import unicodedata
+from pathlib import Path
+
+from markdown_it import MarkdownIt
+from markdown_it.token import Token
+
+MARKDOWN_EXT = ".md"
+DEFAULT_TARGET = "docs"
+
+# Matches [text](target) but NOT ![text](target)
+LINK_PATTERN = re.compile(r"(?<!\!)\[[^\]]*\]\(([^)\s]+(?:\s+\"[^\"]*\")?)\)")
+
+HEADING_PATTERN = re.compile(r"^ {0,3}(#{1,6})\s+(.*)$")
+
+_MD_PARSER = MarkdownIt("commonmark", {"html": False})
+
+EXTERNAL_PREFIXES = ("https://", "http://", "mailto:", "tel:", "ftp://")
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    repo_root = Path.cwd()
+
+    if args:
+        md_files, breakdown = collect_from_args(args, repo_root)
+    else:
+        default_files = collect_from_directory(repo_root / DEFAULT_TARGET)
+        md_files = default_files
+        breakdown = {DEFAULT_TARGET: len(default_files)}
+
+    if not md_files:
+        print("No Markdown files to check.", file=sys.stderr)
+        return 0
+
+    errors = validate_all(md_files, repo_root)
+
+    if errors:
+        for err in errors:
+            print(err, file=sys.stderr)
+        return 1
+
+    detail = ", ".join(f"{arg}: {count}" for arg, count in breakdown.items())
+    print(f"All Markdown links valid ({len(md_files)} file(s) checked: {detail}).")
+    return 0
+
+
+def collect_from_args(args: list[str], repo_root: Path) -> tuple[list[Path], dict[str, int]]:
+    files: list[Path] = []
+    breakdown: dict[str, int] = {}
+    for arg in args:
+        p = Path(arg)
+        if not p.is_absolute():
+            p = repo_root / p
+        before = len(files)
+        if p.is_dir():
+            files.extend(collect_from_directory(p))
+        elif p.is_file() and p.suffix == MARKDOWN_EXT:
+            files.append(p)
+        breakdown[arg] = len(files) - before
+    return files, breakdown
+
+
+def collect_from_directory(directory: Path) -> list[Path]:
+    if not directory.exists():
+        return []
+    return sorted(
+        p for p in directory.rglob(f"*{MARKDOWN_EXT}") if not _is_hidden(p.relative_to(directory))
+    )
+
+
+def _is_hidden(path: Path) -> bool:
+    return any(part.startswith(".") for part in path.parts)
+
+
+def validate_all(files: list[Path], repo_root: Path) -> list[str]:
+    heading_cache: dict[Path, set[str]] = {}
+    errors: list[str] = []
+
+    for filepath in files:
+        content = filepath.read_text(encoding="utf-8")
+        lines = content.split("\n")
+        stripped = _strip_code_segments(content)
+
+        for match in LINK_PATTERN.finditer(stripped):
+            raw_target = match.group(1).split()[0]
+            line_num = _index_to_line(match.start(), lines)
+            err = validate_link(filepath, raw_target, line_num, repo_root, heading_cache)
+            if err:
+                rel = filepath.relative_to(repo_root)
+                errors.append(f"{rel}:{line_num}: {err}")
+
+    return errors
+
+
+def validate_link(
+    source: Path,
+    raw_target: str,
+    line: int,
+    repo_root: Path,
+    heading_cache: dict[Path, set[str]],
+) -> str | None:
+    target = raw_target.strip()
+    if not target or _is_external(target):
+        return None
+
+    fragment = ""
+    hash_idx = target.find("#")
+    if hash_idx != -1:
+        fragment = target[hash_idx + 1 :]
+        target = target[:hash_idx]
+
+    if target.startswith("?"):
+        return None
+
+    if target == "" or target == "#":
+        resolved = source
+    elif target.startswith("/"):
+        resolved = repo_root / target.lstrip("/")
+    else:
+        resolved = (source.parent / target).resolve()
+
+    # Reject links that resolve outside the repo root
+    try:
+        resolved.relative_to(repo_root)
+    except ValueError:
+        return f"link resolves outside repository: {raw_target}"
+
+    resolved_checked = _resolve_path(resolved)
+    if resolved_checked is None:
+        return f"broken link: {raw_target}"
+    resolved = resolved_checked
+
+    if fragment and resolved.is_file() and resolved.suffix == MARKDOWN_EXT:
+        slugs = _get_headings(resolved, heading_cache)
+        if fragment not in slugs:
+            return f"missing anchor '{fragment}' in {resolved.relative_to(repo_root)}"
+
+    return None
+
+
+def _resolve_path(candidate: Path) -> Path | None:
+    if candidate.exists():
+        return candidate
+    md_candidate = candidate.with_suffix(MARKDOWN_EXT)
+    if md_candidate.exists():
+        return md_candidate
+    readme = candidate / "README.md"
+    if readme.exists():
+        return readme
+    return None
+
+
+def _is_external(target: str) -> bool:
+    return any(target.startswith(prefix) for prefix in EXTERNAL_PREFIXES)
+
+
+def _get_headings(filepath: Path, cache: dict[Path, set[str]]) -> set[str]:
+    if filepath in cache:
+        return cache[filepath]
+
+    content = filepath.read_text(encoding="utf-8")
+    slugs: set[str] = set()
+    slug_counts: dict[str, int] = {}
+
+    for line in content.split("\n"):
+        m = HEADING_PATTERN.match(line)
+        if not m:
+            continue
+        text = m.group(2).strip()
+        text = re.sub(r"\s+#+\s*$", "", text).strip()
+        if not text:
+            continue
+        slugs.add(_slugify(text, slug_counts))
+
+    cache[filepath] = slugs
+    return slugs
+
+
+def _slugify(text: str, slug_counts: dict[str, int]) -> str:
+    slug = text.strip().lower()
+    # Remove control characters
+    slug = re.sub(r"[\x00-\x1f]", "", slug)
+    # Remove punctuation and symbols
+    slug = "".join(c for c in slug if not unicodedata.category(c).startswith(("P", "S")))
+    slug = re.sub(r"\s+", "-", slug)
+    slug = re.sub(r"-+", "-", slug)
+    slug = slug.strip("-")
+
+    if not slug:
+        slug = "section"
+
+    count = slug_counts.get(slug, 0)
+    slug_counts[slug] = count + 1
+    return slug if count == 0 else f"{slug}-{count}"
+
+
+def _fence_has_explicit_closing(tok: Token) -> bool:
+    """Return True iff a markdown-it-py ``fence`` token has an explicit closing.
+
+    Compare the fence token's source line span (``tok.map``) against the
+    logical line count of ``tok.content``. A closed fence accounts for an
+    open line + content lines + close line, so ``span == content + 2``.
+    Anything else (including open + content with no close) is treated as
+    unclosed, which keeps the link checker scanning subsequent paragraphs
+    (soundness > spec purity).
+
+    ``len(tok.content.splitlines())`` is used rather than
+    ``tok.content.count("\\n")`` because markdown-it-py does not guarantee
+    a trailing newline on ``tok.content`` when the source itself has none
+    (e.g. ``"```bash\\n[broken](missing.md)"``). ``splitlines()`` returns
+    the logical line count regardless of trailing-newline presence, which
+    CommonMark 0.31.2 §4.5 permits.
+    """
+    if tok.map is None:
+        return False
+    span_lines = tok.map[1] - tok.map[0]
+    content_lines = len(tok.content.splitlines())
+    return span_lines == content_lines + 2
+
+
+def _collect_fenced_block_line_ranges(content: str) -> list[tuple[int, int]]:
+    """Collect ``[start, end)`` line ranges of explicitly-closed fenced blocks.
+
+    Unclosed fences (no closing fence before EOF or container end) are
+    excluded so that real broken links after an accidentally-unclosed fence
+    are not silently swallowed. Indented code blocks (§4.4) are also
+    excluded — markdown-it-py emits ``code_block`` tokens for those, which
+    we ignore.
+    """
+    tokens = _MD_PARSER.parse(content)
+    ranges: list[tuple[int, int]] = []
+    for tok in tokens:
+        if tok.type != "fence" or tok.map is None:
+            continue
+        if not _fence_has_explicit_closing(tok):
+            continue
+        ranges.append((tok.map[0], tok.map[1]))
+    return ranges
+
+
+def _strip_code_segments(content: str) -> str:
+    """Blank out fenced code blocks and inline code spans for link extraction.
+
+    Returns a string of the same length as ``content`` where characters inside
+    Markdown fenced code blocks (CommonMark § 4.5) and inline code spans
+    (CommonMark § 6.1) are replaced with spaces. Newline positions are
+    preserved so that ``_index_to_line`` returns identical results for
+    matches found in the stripped output.
+
+    Indented code blocks (4-space / tab indented) are intentionally out of
+    scope (see Issue #190 design). Unclosed fenced blocks are also left
+    visible so that link checker soundness (false-negative minimization)
+    is preserved. Within unclosed fence regions, backtick characters are
+    blanked so the inline code span pattern cannot stitch the opening fence
+    marker to a similarly-shaped run later in the source (which would
+    silently swallow real broken links).
+    """
+    lines = content.split("\n")
+    closed_ranges = _collect_fenced_block_line_ranges(content)
+    unclosed_ranges = _collect_unclosed_fence_line_ranges(content)
+    mask_line = [False] * len(lines)
+    for start, end in closed_ranges:
+        for i in range(start, min(end, len(lines))):
+            mask_line[i] = True
+    blank_backticks = [False] * len(lines)
+    for start, end in unclosed_ranges:
+        for i in range(start, min(end, len(lines))):
+            if not mask_line[i]:
+                blank_backticks[i] = True
+    out_lines: list[str] = []
+    for i, line in enumerate(lines):
+        if mask_line[i]:
+            out_lines.append(" " * len(line))
+        elif blank_backticks[i]:
+            out_lines.append(line.replace("`", " "))
+        else:
+            out_lines.append(line)
+    masked = "\n".join(out_lines)
+    return _strip_inline_code_spans(masked)
+
+
+def _collect_unclosed_fence_line_ranges(content: str) -> list[tuple[int, int]]:
+    """Collect ``[start, end)`` line ranges of unclosed fenced blocks.
+
+    Counterpart to ``_collect_fenced_block_line_ranges``: returns the spans
+    that the closed-fence collector skips. Used by ``_strip_code_segments``
+    to neutralize backticks within unclosed fences so they cannot trigger
+    false inline-code-span matches against later backtick runs.
+    """
+    tokens = _MD_PARSER.parse(content)
+    ranges: list[tuple[int, int]] = []
+    for tok in tokens:
+        if tok.type != "fence" or tok.map is None:
+            continue
+        if _fence_has_explicit_closing(tok):
+            continue
+        ranges.append((tok.map[0], tok.map[1]))
+    return ranges
+
+
+def _strip_inline_code_spans(text: str) -> str:
+    """Blank inline code spans (CommonMark § 6.1) preserving char offsets.
+
+    Walks ``text`` left-to-right tracking text vs. code-span context so that
+    CommonMark backslash escape rules are honored correctly:
+
+    - In text mode, a backslash before any char consumes both as literal text,
+      so ``\\``` is NOT a code-span delimiter (CommonMark § 2.4).
+    - Inside a code span, backslashes are literal — the only thing that closes
+      the span is the next backtick run of the same length as the opener
+      (CommonMark § 6.1). Escape preprocessing must not run inside a span.
+
+    The previous global ``text.replace("\\`", "  ")`` preprocessing violated
+    the second rule: it dropped backticks that were actually closing
+    delimiters of real code spans (creating false-positive broken links) and
+    fabricated paired delimiters where the source had only an unmatched
+    backtick run (silently masking real broken links — a soundness regression).
+
+    Non-newline characters within a recognized span are replaced with spaces;
+    newlines are preserved so ``_index_to_line`` keeps reporting the original
+    line numbers.
+    """
+    n = len(text)
+    out = list(text)
+    i = 0
+    while i < n:
+        ch = text[i]
+        if ch == "\\" and i + 1 < n:
+            # Text-mode backslash escape: skip the backslash + next char as
+            # literal. This makes `\`` a non-delimiter and `\\` consume both
+            # backslashes so a literal-backslash + delimiter-backtick (`\\` `)
+            # still opens a real span.
+            i += 2
+            continue
+        if ch == "`":
+            j = i
+            while j < n and text[j] == "`":
+                j += 1
+            run_len = j - i
+            # Search for a closing backtick run of equal length. Inside the
+            # span, backslashes are literal — do NOT escape-skip while scanning.
+            k = j
+            close_end = -1
+            while k < n:
+                if text[k] == "`":
+                    m = k
+                    while m < n and text[m] == "`":
+                        m += 1
+                    if m - k == run_len:
+                        close_end = m
+                        break
+                    k = m
+                else:
+                    k += 1
+            if close_end == -1:
+                # No matching close; opener is literal text.
+                i = j
+            else:
+                for p in range(i, close_end):
+                    if text[p] != "\n":
+                        out[p] = " "
+                i = close_end
+            continue
+        i += 1
+    return "".join(out)
+
+
+def _index_to_line(index: int, lines: list[str]) -> int:
+    total = 0
+    for i, line in enumerate(lines):
+        total += len(line) + 1
+        if index < total:
+            return i + 1
+    return len(lines)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

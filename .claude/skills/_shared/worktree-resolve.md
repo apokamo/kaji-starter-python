@@ -1,0 +1,26 @@
+# Worktree パス解決（共通手順）
+
+## 手順
+
+1. **Issue 本文から Worktree 情報を取得**:
+   ```bash
+   uv run kaji issue view [issue_id] --json body -q '.body'
+   ```
+
+2. **Worktree の相対パスを抽出**:
+   - `> **Worktree**: \`../[worktree_dirname]\`` の形式（`/issue-start` が記録した値）
+
+3. **絶対パスに変換**:
+   ```bash
+   MAIN_REPO=$(git rev-parse --show-toplevel)
+   WORKTREE_PATH=$(realpath "$MAIN_REPO/../[worktree_dirname]")
+   ```
+
+4. **存在確認**:
+   - 存在しない場合は `/issue-start [issue_id]` を案内して終了
+
+## 注意事項
+
+- Claude Code では Bash の cwd は毎回リセットされる
+- Bash コマンドは毎回 `cd [absolute-path] && command` で実行
+- Read/Edit/Write ツールでは絶対パスを使用

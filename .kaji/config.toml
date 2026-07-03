@@ -1,0 +1,21 @@
+# kaji configuration.
+# 設定仕様の正本: https://github.com/apokamo/kaji/blob/main/docs/reference/configuration.md
+# 各 key の解説: docs/reference/configuration.md
+
+[paths]
+artifacts_dir = ".kaji/artifacts"
+skill_dir = ".claude/skills"
+
+[execution]
+default_timeout = 2400
+agent_runner = "headless"           # "headless"（既定） | "interactive_terminal"（tmux 3.1+ 必須）
+
+# Repository default. local provider を試す場合は `uv run kaji local init` で
+# .kaji/config.local.toml (gitignored) overlay を作って切り替える。
+[provider]
+type = "github"
+
+[provider.github]
+repo = "<owner>/<repo>"             # ← 自分の repository に書き換える（必須）
+default_branch = "main"
+git_remote = "origin"

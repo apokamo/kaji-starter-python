@@ -1,0 +1,49 @@
+[project]
+name = "starter-app"
+version = "0.1.0"
+description = "Python application starter for kaji-driven development"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+    "markdown-it-py>=3.0",
+    "kaji",
+]
+
+[tool.uv.sources]
+kaji = { git = "https://github.com/apokamo/kaji", tag = "v0.12.1" }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/starter_app"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "B", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+markers = [
+    "small: Small tests - no external dependencies",
+    "medium: Medium tests - file I/O, mock processes",
+    "large: Large tests - real CLI, E2E",
+]
