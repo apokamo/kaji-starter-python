@@ -12,6 +12,11 @@
 
 set -euo pipefail
 
+if ! gh auth status >/dev/null 2>&1; then
+  echo "error: gh not authenticated. Run 'gh auth login' first." >&2
+  exit 1
+fi
+
 repo="${1:-}"
 if [[ -z "$repo" ]]; then
   repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
@@ -29,5 +34,7 @@ create "type:refactor" "fbca04" "リファクタリング"
 create "type:docs"     "0075ca" "ドキュメント"
 create "type:test"     "c5def5" "テスト追加・改善"
 create "type:chore"    "ededed" "雑務・依存の掃除"
+create "type:perf"     "a2eeef" "パフォーマンス改善"
+create "type:security" "b60205" "セキュリティ対応"
 
 echo "done"

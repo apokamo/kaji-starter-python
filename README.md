@@ -14,28 +14,36 @@ Supported environments: Linux / macOS / WSL2 (native Windows is not supported �
 
 ## Quickstart
 
-Prerequisites: [uv](https://docs.astral.sh/uv/) / [gh](https://cli.github.com/) / tmux 3.1+ /
+Prerequisites: [uv](https://docs.astral.sh/uv/) / [gh](https://cli.github.com/) /
 an agent CLI (the default is [Claude Code](https://claude.com/claude-code); switch to
-codex / gemini with `scripts/set_agent.py`).
+codex / gemini with `scripts/set_agent.py`). tmux 3.1+ is required only when using the
+interactive terminal runner (`execution.agent_runner = "interactive_terminal"`); the default
+`headless` runner does not need it.
 
 ```bash
 # 1. On GitHub, click "Use this template" to create your own repository, then clone it
 
-# 2. Initial setup commit (land it on main before running any workflow)
+# 2. Edit the setup values
 #    - .kaji/config.toml: set [provider.github] repo = "<owner>/<repo>" to your repo
-#    - (optional) rename the pyproject.toml project name and src/starter_app/
-git add -A && git commit -m "chore: initial setup"
-#    ^ If left uncommitted, this setup change leaks into your first feature PR.
+#    - AGENTS.md: fill in the <project-name> placeholder
+#    - LICENSE: replace it with your project's license if you like — the starter is 0BSD,
+#      so there is no attribution obligation
+#    - (optional) rename the project: pyproject.toml `name`, src/starter_app/, tests
 
-# 3. Set up and run the quality gate
+# 3. Set up and run the quality gate (this regenerates uv.lock if you renamed the package)
 uv sync
 source .venv/bin/activate && make check   # passes right after creation
 
-# 4. GitHub auth and label creation
+# 4. Initial setup commit (land it on main BEFORE running any workflow)
+git add -A && git commit -m "chore: initial setup"
+#    ^ Commit after `uv sync` so uv.lock is included. If left uncommitted, these setup
+#      changes leak into your first feature PR.
+
+# 5. GitHub auth and label creation
 gh auth status
 scripts/setup_labels.sh                    # create the type:* labels the workflow uses (first time only)
 
-# 5. Run the first workflow
+# 6. Run the first workflow
 uv run kaji issue create --title "..." --body-file issue.md --label type:feature
 uv run kaji run .kaji/wf/dev.yaml <issue-id>
 ```
@@ -43,12 +51,14 @@ uv run kaji run .kaji/wf/dev.yaml <issue-id>
 GitHub labels (`type:*`) are not copied by "Use this template", so create them once with
 `scripts/setup_labels.sh` (the workflow's issue creation depends on these labels).
 
-To try it without GitHub, use the local provider (issues are created under the local
-provider; no labels needed):
+To try it without GitHub, use the local provider. Unlike `dev.yaml`, `dev-local.yaml`
+starts at the `design` step and assumes issue-create / issue-start were done manually
+(worktree creation is required). See the manual issue-start steps in
+[docs/dev/kaji-workflow.md](docs/dev/kaji-workflow.md) (§ local provider issue-create / issue-start):
 
 ```bash
 uv run kaji local init
-uv run kaji issue create --title "..." --body-file issue.md --label type:feature
+# then follow the manual issue-create + issue-start steps in the guide above, and:
 uv run kaji run .kaji/wf/dev-local.yaml <issue-id>
 ```
 

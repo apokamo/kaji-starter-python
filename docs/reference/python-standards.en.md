@@ -7,7 +7,8 @@ Coding conventions. The source of truth is this document plus the ruff / mypy se
 
 ## Style
 
-- The formatter / linter is ruff (`line-length = 100`, `select = ["E", "F", "I", "W", "B", "UP"]`)
+- The formatter / linter is ruff (`line-length = 100`, `select = ["E", "F", "I", "W", "B", "UP"]`, `ignore = ["E501"]`)
+- Line length is delegated to `ruff format`; `E501` (line-too-long) is disabled (long lines that remain after formatting are tolerated)
 - Order imports as standard library → third party → local (enforced by ruff `I`)
 - Comments and docstrings should explain "why", not the "what" that the code already shows
 
@@ -20,7 +21,7 @@ Coding conventions. The source of truth is this document plus the ruff / mypy se
 
 ## Typing
 
-- Apply mypy strict to all of `src/`. Type annotations are required for new code
+- Apply mypy strict to `src/` / `tests/` / `scripts/` (`make typecheck`). Type annotations are required for new code
 - Limit `Any` to external boundaries (e.g. return values of untyped libraries); do not let it propagate inward
 - Prefer built-in generics (`list[str]` / `dict[str, int]`) and `X | None` over `typing` (Python 3.11+)
 

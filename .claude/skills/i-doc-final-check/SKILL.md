@@ -14,7 +14,7 @@ docs-only workflow の PR 前最終ゲート。
 |-----------|-----------------|
 | `/i-doc-review` または `/i-doc-verify` で Approve 後 | ✅ 必須 |
 
-**ワークフロー内の位置**: i-doc-update → i-doc-review → **i-doc-final-check** → i-pr → close
+**ワークフロー内の位置**: doc-update → doc-review → **final-check** → pr → close
 
 ## 入力
 

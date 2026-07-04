@@ -47,14 +47,17 @@ STEP_ID_RE = re.compile(r"^  - id: (\S+)\s*$")
 AGENT_RE = re.compile(r"^    agent: (\S+)\s*$")
 MODEL_RE = re.compile(r"^    model: (\S+)\s*$")
 EFFORT_RE = re.compile(r"^    effort: (\S+)\s*$")
+# step 直下の agent/model/effort 行のうち正規形に一致しないもの（inline comment 等）を
+# 検出するための緩いパターン。silent skip を避け fail-loud にするために使う。
+LOOSE_FIELD_RE = re.compile(r"^    (agent|model|effort):")
 
 
 def tier_of(step_id: str) -> str:
     return "light" if step_id in LIGHT_STEPS else "heavy"
 
 
-def convert_file(path: Path, cli: str) -> tuple[int, list[str]]:
-    """1 ファイルを変換し、(書き換えた step 数, エラーリスト) を返す。"""
+def convert_file(path: Path, cli: str) -> tuple[str, int, list[str]]:
+    """1 ファイルを変換し、(新しい内容, 書き換えた step 数, エラーリスト) を返す。"""
     lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
     out: list[str] = []
     errors: list[str] = []
@@ -86,11 +89,19 @@ def convert_file(path: Path, cli: str) -> tuple[int, list[str]]:
                 else:
                     line = f"    effort: {replacement}\n"
                     changed_steps.add(current_step)
+        elif m := LOOSE_FIELD_RE.match(stripped):
+            # 正規形に一致しない agent/model/effort 行（例: inline comment 付き）は
+            # silent skip すると agent だけ変換され model/effort が取り残された壊れた
+            # 組を生む。fail-loud にして対象を明示する。
+            errors.append(
+                f"{path}:{lineno}: 想定パターン外の {m.group(1)} 行"
+                f"（正規形 '    {m.group(1)}: <value>' でない）: {stripped!r}"
+            )
         out.append(line)
 
-    if not errors:
-        path.write_text("".join(out), encoding="utf-8")
-    return len(changed_steps), errors
+    # 書き込みは行わず変換結果を返す（呼び出し側が全ファイルの成否を見てから
+    # 一括 write する。途中エラーで一部だけ書き換わった混在状態を避けるため）。
+    return "".join(out), len(changed_steps), errors
 
 
 def main() -> int:
@@ -106,20 +117,27 @@ def main() -> int:
         print(f"error: {WF_DIR}/*.yaml が見つからない", file=sys.stderr)
         return 1
 
+    # Phase 1: 全ファイルを変換（メモリ上）。1 つでもエラーがあれば書き込まない。
     all_errors: list[str] = []
     total_steps = 0
+    pending: list[tuple[Path, str, int]] = []
     for path in yaml_files:
-        n_steps, errors = convert_file(path, cli)
+        content, n_steps, errors = convert_file(path, cli)
         all_errors.extend(errors)
         total_steps += n_steps
-        status = f"{n_steps} steps updated" if n_steps else "no change"
-        print(f"{path}: {status}")
+        pending.append((path, content, n_steps))
 
     if all_errors:
-        print("\n変換エラー（ファイルは書き換え済みのものを除き未変更）:", file=sys.stderr)
+        print("変換エラー（どのファイルも書き換えていない）:", file=sys.stderr)
         for err in all_errors:
             print(f"  {err}", file=sys.stderr)
         return 1
+
+    # Phase 2: エラーが無い場合のみ一括 write（atomic: 途中失敗による混在を防ぐ）。
+    for path, content, n_steps in pending:
+        path.write_text(content, encoding="utf-8")
+        status = f"{n_steps} steps updated" if n_steps else "no change"
+        print(f"{path}: {status}")
 
     print(f"\n{len(yaml_files)} files processed, {total_steps} steps updated (agent={cli})")
     return 0

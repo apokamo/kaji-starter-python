@@ -17,7 +17,7 @@ docs-only の変更をレビューする。新規指摘を行ってよい。
 |-----------|-----------------|
 | `i-doc-update` 完了後 | ✅ 必須 |
 
-**ワークフロー内の位置**: update-doc → **review-doc** → (fix-doc → verify-doc) → i-doc-final-check → i-pr
+**ワークフロー内の位置**: doc-update → **doc-review** → (doc-fix → doc-verify) → final-check → pr
 
 ## 入力
 
@@ -55,9 +55,11 @@ $ARGUMENTS = <issue_id>
 
 1. [_shared/worktree-resolve.md](../_shared/worktree-resolve.md) の手順に従い、Worktree の絶対パスを取得
 2. Issue コメントから直近の docs-only 更新報告を確認
-3. 設計書を確認:
+3. 設計書があれば確認（docs-only workflow では設計書は任意。無くてもよい）:
    ```bash
-   cat [worktree_dir]/draft/design/issue-[issue_id]-*.md
+   ls [worktree_dir]/draft/design/issue-[issue_id]-*.md >/dev/null 2>&1 \
+     && cat [worktree_dir]/draft/design/issue-[issue_id]-*.md \
+     || echo "(設計書なし: docs-only では任意)"
    ```
 4. 差分を確認:
    ```bash

@@ -7,7 +7,8 @@
 
 ## Style
 
-- formatter / linter は ruff（`line-length = 100`、`select = ["E", "F", "I", "W", "B", "UP"]`）
+- formatter / linter は ruff（`line-length = 100`、`select = ["E", "F", "I", "W", "B", "UP"]`、`ignore = ["E501"]`）
+- 行長は `ruff format` に委ね、`E501`（line-too-long）は無効化している（整形後に残る長行は許容）
 - import は標準ライブラリ → サードパーティ → ローカルの順（ruff `I` が強制）
 - コメント・docstring は「なぜ」を書く。コードから読み取れる「何を」は書かない
 
@@ -20,7 +21,7 @@
 
 ## Typing
 
-- mypy strict を全 `src/` に適用する。新規コードは型注釈必須
+- mypy strict を `src/` / `tests/` / `scripts/` に適用する（`make typecheck`）。新規コードは型注釈必須
 - `Any` の使用は外部境界（未型付けライブラリの戻り値等）に限定し、内部へ伝播させない
 - `typing` より組み込み generics（`list[str]` / `dict[str, int]`）と `X | None` を使う（Python 3.11+）
 

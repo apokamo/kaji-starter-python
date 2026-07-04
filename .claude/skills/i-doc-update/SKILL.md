@@ -16,7 +16,7 @@ name: i-doc-update
 | docs-only Issue の主作業 | ✅ 必須 |
 | コード変更を伴う Issue | ❌ `issue-implement` / `i-dev-final-check` を使用 |
 
-**ワークフロー内の位置**: review-ready → start → **update-doc** → review-doc → (fix-doc → verify-doc) → i-doc-final-check → i-pr → close
+**ワークフロー内の位置**: review-ready → start → **doc-update** → doc-review → (doc-fix → doc-verify) → final-check → pr → close
 
 ## 入力
 

@@ -15,7 +15,7 @@ name: issue-design
 | Issue着手後、実装前 | ✅ 必須 |
 | worktreeが存在しない | ❌ 先に `/issue-start` を実行 |
 
-**ワークフロー内の位置**: create → start → **design** → review-design → implement → review-code → doc-check → i-dev-final-check → i-pr → close
+**ワークフロー内の位置**: create → start → **design** → review-design → implement → review-code → final-check → pr → close
 
 ## 入力
 
@@ -173,15 +173,18 @@ NON_DESIGN=$(git -C [worktree_dir] log --oneline [default_branch]..HEAD -- ':(ex
 #          scope 違反を再発する。`2>/dev/null` を付けず、エラー発生時
 #          は BACK_COUNT が空文字となり (e) で ABORT 経路に流す
 #
-#    GitHub provider の `uv run kaji issue view --comments --output json` は
-#    top-level object で、コメント配列を `.comments` プロパティに持つ
-#    （各要素は GitHub REST API の Issue Comments リソース。`body` /
-#    `created_at` 等のフィールドあり）。
-BACK_COUNT=$(uv run kaji issue view [issue_id] --comments --output json \
+#    `uv run kaji issue view [issue_id] --json comments` は top-level object で
+#    コメント配列を `.comments` プロパティに持つ（github / local 両 provider で
+#    同一構造。各要素は `.body` フィールドを持つ）。github provider は `gh` に
+#    素通しするため flag は `--json comments`（`--output json` は無効: unknown flag）。
+#    検出マーカーは producer の実出力に一致させる:
+#    - review-code (`# コードレビュー結果`): `[x] Changes Requested`（判定チェックボックス）
+#    - final-check (`## 最終チェック結果`): `BACK_DESIGN` / `BACK_IMPLEMENT` 判定
+BACK_COUNT=$(uv run kaji issue view [issue_id] --json comments \
   | jq '[
       .comments[]
       | select(.body | test("^(# コードレビュー結果|## 最終チェック結果)"; "m"))
-      | select(.body | test("\\[x\\] Changes Requested / BACK|\\| *判定 *\\|.*BACK"))
+      | select(.body | test("\\[x\\] Changes Requested|BACK_DESIGN|BACK_IMPLEMENT|\\| *判定 *\\|.*BACK"))
     ] | length')
 
 # (e) fail-loud handler: kaji / jq 失敗時は BACK_COUNT が空文字。silent
@@ -197,7 +200,7 @@ status: ABORT
 reason: |
   BACK detection pipeline failed (uv run kaji issue view / jq error).
 evidence: |
-  `uv run kaji issue view [issue_id] --comments --output json | jq ...` の評価に
+  `uv run kaji issue view [issue_id] --json comments | jq ...` の評価に
   失敗し BACK_COUNT が空文字となった。初回フローへの silent fallthrough は
   既存設計書の上書きという scope 違反を再発させるため抑止する。
 suggestion: |
@@ -209,9 +212,8 @@ VERDICT_BLOCK
 fi
 # BACK_COUNT >= 1 → 該当
 #
-# provider 別フォールバック:
-# - local provider: `--output json` の構造は別。実装側で provider 別の
-#   抽出器（comment body iterator）を用意する
+# `--json comments` の `.comments[].body` は github / local 両 provider で
+# 共通に使えるため、provider 別の抽出器は不要。
 ```
 
 `[worktree_dir]` は Step 1 で取得した絶対パスを再利用する（再解決しない）。
