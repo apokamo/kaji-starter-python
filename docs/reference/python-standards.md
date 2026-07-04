@@ -1,5 +1,7 @@
 # Python Standards
 
+> English: [python-standards.en.md](python-standards.en.md)
+
 コーディング規約。正本は本ドキュメント + `pyproject.toml` の ruff / mypy 設定。
 `make check` がバックストップとして機械的に強制する。
 

@@ -1,5 +1,7 @@
 # Configuration
 
+> English: [configuration.en.md](configuration.en.md)
+
 `.kaji/config.toml` と `.env` の責務分担。
 
 ## `.kaji/config.toml`（tracked）

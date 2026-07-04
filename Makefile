@@ -27,7 +27,7 @@ test-large:
 	pytest -m large
 
 verify-docs:
-	python3 scripts/check_doc_links.py docs/ README.md AGENTS.md CLAUDE.md .claude/skills/
+	python3 scripts/check_doc_links.py docs/ README.md README.ja.md AGENTS.md CLAUDE.md .claude/skills/
 
 setup:
 	uv sync
