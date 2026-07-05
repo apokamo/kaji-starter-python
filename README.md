@@ -64,7 +64,7 @@ uv run kaji run .kaji/wf/dev-local.yaml <issue-id>
 
 ## Documentation
 
-- Setup details, development flow, and customization: the kaji usage guide (in preparation;
-  track progress at [apokamo/kaji#242](https://github.com/apokamo/kaji/issues/242))
+- Setup details, development flow, and customization:
+  [Python Starter Guide](https://github.com/apokamo/kaji/blob/main/docs/guides/python-starter.md)
 - Development conventions for this repository: [docs/README.md](docs/README.md)
 - Agent instructions: [AGENTS.md](AGENTS.md)

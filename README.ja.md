@@ -62,7 +62,7 @@ uv run kaji run .kaji/wf/dev-local.yaml <issue-id>
 
 ## Documentation
 
-- セットアップ詳細・開発の進め方・カスタマイズ: kaji 本体の利用ガイド（準備中。
-  進捗は [apokamo/kaji#242](https://github.com/apokamo/kaji/issues/242) を参照）
+- セットアップ詳細・開発の進め方・カスタマイズ:
+  [Python Starter ガイド](https://github.com/apokamo/kaji/blob/main/docs/guides/python-starter.ja.md)
 - この repository の開発規約: [docs/README.md](docs/README.md)
 - agent 向け instructions: [AGENTS.md](AGENTS.md)
