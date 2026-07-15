@@ -8,7 +8,7 @@
 - Python project 骨格（`src/` layout / `uv` / `ruff` / `mypy` / `pytest` / `Makefile`）
 - kaji 導入済み（dev dependency。`uv run kaji` で実行）
 - workflow YAML 5 本（GitHub provider 3 本 + local provider 2 本、claude 単騎構成）
-- 汎用化済み skills 23 本（`.claude/skills/`。Claude 以外の agent は `.agents/skills/` 経由で参照）
+- 汎用化済み skills 24 本（`.claude/skills/`。Claude 以外の agent は `.agents/skills/` 経由で参照。検証済み Issue 直列計画を作る `/series-create` を含む）
 
 対応環境: Linux / macOS / WSL2（native Windows は対象外。WSL2 を利用してください）。
 
@@ -37,16 +37,20 @@ git add -A && git commit -m "chore: initial setup"
 #    ↑ uv sync の後に commit することで uv.lock 差分も含まれる。未 commit のまま
 #      workflow を回すと、これらの設定変更が最初の feature PR に混入する
 
-# 5. GitHub 認証とラベル作成
-gh auth status
-scripts/setup_labels.sh                    # workflow が使う type:* ラベルを作成（初回のみ）
+# 5. GitHub の Settings > General > Features > Issues で
+#    "Auto-close issues with merged linked pull requests" を無効化
+#    （workflow は PR と Issue をリンクするが、Issue は最終 step で明示 close する）
 
-# 6. 最初の workflow 実行
+# 6. GitHub 認証とラベル作成
+gh auth status
+scripts/setup_labels.sh                    # type:*、epic、incident ラベルを作成（初回のみ）
+
+# 7. 最初の workflow 実行
 uv run kaji issue create --title "..." --body-file issue.md --label type:feature
 uv run kaji run .kaji/wf/dev.yaml <issue-id>
 ```
 
-GitHub ラベル（`type:*`）は template では複製されないため、`scripts/setup_labels.sh` で
+GitHub ラベル（`type:*`、`epic`、`incident:*`）は template では複製されないため、`scripts/setup_labels.sh` で
 一度だけ作成する（workflow の起票がこのラベルに依存する）。
 
 GitHub 連携なしで試す場合は local provider を使う。`dev.yaml` と違い `dev-local.yaml` は

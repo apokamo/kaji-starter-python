@@ -15,6 +15,8 @@ kaji の repository 共通設定。設定仕様の正本は kaji 本体の
 | `paths.skill_dir` | `.claude/skills` | skill 正本の置き場 |
 | `execution.default_timeout` | `2400` | step あたりの timeout 秒 |
 | `execution.agent_runner` | `headless` | `interactive_terminal` に変えると tmux pane で agent が動く（tmux 3.1+ 必須） |
+| `execution.failure_triage` | `true`（既定） | ERROR / 対象 ABORT を分類し、証跡コメント・artifact・incident 集約を行う |
+| `execution.auto_recover` | `false`（既定） | recovery chain ごと1回の自動再開を許可する opt-in |
 | `provider.type` | `github` | repository 既定の provider |
 | `provider.github.repo` | `<owner>/<repo>` | **template 利用時に必ず書き換え、workflow を回す前に commit する**（未 commit のまま実行すると設定変更が最初の feature PR に混入する） |
 | `provider.github.default_branch` | `main` | |
@@ -37,6 +39,8 @@ kaji の repository 共通設定。設定仕様の正本は kaji 本体の
 - stdout を別途ファイルに残したい場合は、**repository 直下に置かない**。repo 直下の未追跡
   ファイルは `issue-close` の安全ガードが検知して merge を中断する。scratch 用の `tmp/`
   （gitignored）か repository 外に出力する。念のため `.gitignore` は `*.log` も無視する
+
+failure triage は既定で有効だが、自動再開は無効。`scripts/setup_labels.sh` は triage が GitHub Issue を集約できるよう `incident` ラベル群も作成する。詳細は kaji 本体の [Failure Triage / Recovery guide](https://github.com/apokamo/kaji/blob/main/docs/cli-guides/failure-recovery.md) を参照。
 
 ## `.kaji/config.local.toml`（gitignored）
 

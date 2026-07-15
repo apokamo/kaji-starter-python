@@ -9,6 +9,8 @@ skill_dir = ".claude/skills"
 [execution]
 default_timeout = 2400
 agent_runner = "headless"           # "headless"（既定） | "interactive_terminal"（tmux 3.1+ 必須）
+# failure_triage = true             # 失敗分類・証跡コメント・incident 集約（既定 true）
+# auto_recover = false              # recovery chain ごと1回の自動再開を許可（強い副作用のため opt-in）
 
 # Repository default. local provider を試す場合は `uv run kaji local init` で
 # .kaji/config.local.toml (gitignored) overlay を作って切り替える。

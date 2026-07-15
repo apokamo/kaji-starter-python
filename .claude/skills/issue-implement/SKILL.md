@@ -416,8 +416,14 @@ PHR_EOF
 
 実装完了をIssueにコメントします。pytest および品質チェックの出力をそのまま含めること。
 
+**verdict マーカーの無条件付与（必須）**: 実装完了報告コメントには **常に** `--verdict-step implement --verdict-status <STATUS>` を付与する。`<STATUS>` は本 skill が「Verdict 出力」で返す status（`PASS` / `RETRY` / `BACK` / `ABORT`）に置換する。CLI が body 1 行目に `<!-- kaji-verdict: step=implement status=<STATUS> -->` を決定的に付与し、`issue-design` Step 1.6 の BACK 再入検出はこのマーカーのみを参照する。「BACK のときだけ付ける」条件付き出力は禁止。
+
+> Baseline Check コメントと Pre-Handoff Review 証跡コメントは本 skill の verdict を表す判定コメントではないため、verdict マーカーを付与しない。マーカーを付与するのは本 Step 9 の実装完了報告コメントのみ。
+
 ````bash
-uv run kaji issue comment [issue_id] --commit --body "$(cat <<'COMMENT_EOF'
+uv run kaji issue comment [issue_id] --commit \
+  --verdict-step implement --verdict-status <STATUS> \
+  --body "$(cat <<'COMMENT_EOF'
 ## 実装完了報告 (TDD)
 
 設計に基づき、TDDにて実装を行いました。

@@ -1,6 +1,7 @@
 name: dev
 description: |
-  開発作業の標準 workflow。GitHub Issue から PR review / close まで進める。
+  type:feature / type:bug / type:refactor 等の開発作業に対する series 自動選択の標準 workflow。
+  GitHub Issue から PR review / close まで進める。品質優先 variant は明示 override で選ぶ。
   issue-create は事前に完了していることが前提。
   review-ready が RETRY の場合は fix-ready で Issue 本文を修正してから再試行する。
   PR 作成後は review skill が新規レビューを行う（claude 単騎構成）。
@@ -60,7 +61,6 @@ steps:
     agent: claude
     model: opus
     effort: medium
-    inject_verdict: true
     on:
       PASS: review-ready
       ABORT: end
@@ -141,7 +141,6 @@ steps:
     agent: claude
     model: opus
     effort: medium
-    inject_verdict: true
     on:
       PASS: verify-code
       ABORT: end
@@ -193,7 +192,6 @@ steps:
     agent: claude
     model: opus
     effort: medium
-    inject_verdict: true
     on:
       PASS: pr-verify
       ABORT: end

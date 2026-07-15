@@ -15,6 +15,8 @@ Repository-wide settings for kaji. The authoritative spec for every key lives in
 | `paths.skill_dir` | `.claude/skills` | Location of the canonical skills |
 | `execution.default_timeout` | `2400` | Per-step timeout in seconds |
 | `execution.agent_runner` | `headless` | Set to `interactive_terminal` to run the agent in a tmux pane (requires tmux 3.1+) |
+| `execution.failure_triage` | `true` (default) | Classifies ERROR and eligible ABORT results, then records evidence comments, artifacts, and incident aggregation |
+| `execution.auto_recover` | `false` (default) | Opt-in to allow one automatic resume per recovery chain |
 | `provider.type` | `github` | Repository's default provider |
 | `provider.github.repo` | `<owner>/<repo>` | **Must be replaced when using the template, and committed before running any workflow** (if left uncommitted, the setting change leaks into your first feature PR) |
 | `provider.github.default_branch` | `main` | |
@@ -39,6 +41,12 @@ Repository-wide settings for kaji. The authoritative spec for every key lives in
   An untracked file at the repo root is detected by the `issue-close` safety guard and aborts
   the merge. Write it to the scratch `tmp/` directory (gitignored) or outside the repository.
   As a safety net, `.gitignore` also ignores `*.log`.
+
+Failure triage is enabled by default, while automatic recovery is disabled.
+`scripts/setup_labels.sh` also creates the `incident` label family so triage can aggregate
+GitHub Issues. See kaji's
+[Failure Triage / Recovery guide](https://github.com/apokamo/kaji/blob/main/docs/cli-guides/failure-recovery.md)
+for details.
 
 ## `.kaji/config.local.toml` (gitignored)
 

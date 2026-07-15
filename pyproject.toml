@@ -17,7 +17,7 @@ dev = [
 ]
 
 [tool.uv.sources]
-kaji = { git = "https://github.com/apokamo/kaji", tag = "v0.12.1" }
+kaji = { git = "https://github.com/apokamo/kaji", tag = "v0.15.0" }
 
 [build-system]
 requires = ["hatchling"]

@@ -149,42 +149,27 @@ TOTAL=$(git -C [worktree_dir] log --oneline [default_branch]..HEAD | wc -l)
 NON_DESIGN=$(git -C [worktree_dir] log --oneline [default_branch]..HEAD -- ':(exclude)draft/design/' | wc -l)
 # 該当条件: TOTAL >= 2 かつ NON_DESIGN >= 1
 
-# 3. 直近の戻し先 `design` の `BACK` verdict コメントの有無
-#    review-code / i-dev-final-check 等が投稿する判定コメントは、harness の
-#    `---VERDICT---` ブロックではなく Issue コメント本文中に
-#    `[x] Changes Requested / BACK` チェック行や hard gate 結果テーブル
-#    `| 判定 | BACK |` の形で表現される。
+# 3. 直近の戻し先 `design` の `BACK` verdict マーカーコメントの有無
+#    producer skill（review-code / i-dev-final-check / implement 等）は判定
+#    コメント投稿時に `uv run kaji issue comment --verdict-step <step>
+#    --verdict-status <STATUS>` を無条件付与し、CLI が body 1 行目に
+#    `<!-- kaji-verdict: step=<step> status=<STATUS> -->` を埋め込む。
 #
-#    検出方針（dogfood 検証で判明した制約の最終形）:
-#      (a) BACK 必須: `[x] Changes Requested` 単体は review-design の差し戻し
-#          にも使われるため `/ BACK` を必須にする
-#      (b) comment 単位フィルタ: jq の `.comments[]` イテレーションで
-#          comment 境界を維持し、複数 comment を改行連結した stream を
-#          grep する誤検出を排除する。過去の判定コメント本文（例: 「設計
-#          再確認結果」コメントが BACK regex を引用するケース）が前の
-#          comment の判定セクションに混入する事故を防ぐ
-#      (c) 判定見出しゲート: 「判定セクション本体を持つ note」だけを対象
-#          にするため、`# コードレビュー結果`（review-code 由来）と
-#          `## 最終チェック結果`（i-dev-final-check 由来）を OR で
-#          列挙する。新しい判定 step を追加した場合はここに見出しを追記
-#          する。skill 側はどの step からの BACK かは意識しない
-#      (d) fail-loud: kaji / jq が失敗した場合に「BACK 検出ゼロ＝初回
-#          起動」と silent fallthrough すると、本 Issue が防ぎたかった
-#          scope 違反を再発する。`2>/dev/null` を付けず、エラー発生時
-#          は BACK_COUNT が空文字となり (e) で ABORT 経路に流す
+#    consumer はこのマーカーのみを参照する。旧来の判定見出しゲートと
+#    `[x] Changes Requested` / 判定表 regex は後方互換 fallback として残さない。
 #
-#    `uv run kaji issue view [issue_id] --json comments` は top-level object で
-#    コメント配列を `.comments` プロパティに持つ（github / local 両 provider で
-#    同一構造。各要素は `.body` フィールドを持つ）。github provider は `gh` に
-#    素通しするため flag は `--json comments`（`--output json` は無効: unknown flag）。
-#    検出マーカーは producer の実出力に一致させる:
-#    - review-code (`# コードレビュー結果`): `[x] Changes Requested`（判定チェックボックス）
-#    - final-check (`## 最終チェック結果`): `BACK_DESIGN` / `BACK_IMPLEMENT` 判定
+#    design を戻し先とする status 集合 = {BACK, BACK_DESIGN}
+#      - bare `BACK`（implement / review-code 発）と `BACK_DESIGN` は design 行き
+#      - `BACK_IMPLEMENT` / `BACK_FALLBACK` は完全一致で除外する
+#      - design 行き status を追加した場合だけ alternation を更新する
+#
+#    (a) body 1 行目を `^` で厳密照合し、本文中の marker 引用を除外する
+#    (b) `.comments[]` で comment 境界を維持する
+#    (c) kaji / jq 失敗は BACK_COUNT 空文字として fail-loud ABORT する
 BACK_COUNT=$(uv run kaji issue view [issue_id] --json comments \
   | jq '[
       .comments[]
-      | select(.body | test("^(# コードレビュー結果|## 最終チェック結果)"; "m"))
-      | select(.body | test("\\[x\\] Changes Requested|BACK_DESIGN|BACK_IMPLEMENT|\\| *判定 *\\|.*BACK"))
+      | select(.body | test("^<!-- kaji-verdict: step=[a-z][a-z0-9_-]* status=(BACK|BACK_DESIGN) -->"))
     ] | length')
 
 # (e) fail-loud handler: kaji / jq 失敗時は BACK_COUNT が空文字。silent
@@ -210,22 +195,46 @@ suggestion: |
 VERDICT_BLOCK
     exit 1
 fi
-# BACK_COUNT >= 1 → 該当
+# BACK_COUNT >= 1 → design 再入マーカーあり
 #
 # `--json comments` の `.comments[].body` は github / local 両 provider で
-# 共通に使えるため、provider 別の抽出器は不要。
+# 共通に使えるため、provider 別の抽出器は不要。マーカーも同一形式。
 ```
 
 `[worktree_dir]` は Step 1 で取得した絶対パスを再利用する（再解決しない）。
 
 #### 分岐判定
 
-| 条件 | 分岐先 |
-|------|--------|
-| 3 観測すべて該当（既存設計書 ∧ 設計後コミット ∧ 戻し先 `design` の `BACK` verdict コメント） | BACK 経由再起動 → **Step 1.7** に進む |
-| いずれか欠ける | 初回起動（または近接ケース） → **Step 2** 以降の通常フロー |
+観測 1（既存設計書）・観測 2（設計後コミット）・観測 3（design 再入マーカー `BACK_COUNT >= 1`）で分岐する:
 
-> **BACK 必須化と誤検出防止**: `[x] Changes Requested` 単体（BACK なし）は `/issue-review-design` の `[x] Changes Requested (設計修正が必要)` のような **設計レビューの差し戻し** にも使われるため、戻し先 `design` の `BACK` verdict 検出には **`/ BACK` を必須**とする。さらに、過去の判定コメント本文（例: 設計再確認結果コメント自身）が同じ regex を引用する形で含むことがあるため、**jq の `.comments[]` イテレーションで comment 単位にフィルタ** し、判定セクション本体の見出し（`# コードレビュー結果` / `## 最終チェック結果` 等）を持つ comment のみを対象にする。新規の判定 step を追加した場合は (c) heading gate の OR リストに見出しを追記する。
+| 観測 1 | 観測 2 | 観測 3 | 分岐先 |
+|:---:|:---:|:---:|--------|
+| ✓ | ✓ | ✓ | BACK 経由再起動 → **Step 1.7** に進む |
+| ✓ | ✓ | ✗（`BACK_COUNT == 0`） | **曖昧状態 → fail-safe ABORT**（下記ブロックを stdout に出力して終了） |
+| ✗ または（✓ ∧ 観測 2 ✗） | | | 初回起動（または近接ケース） → **Step 2** 以降の通常フロー |
+| `BACK_COUNT` が空文字 | | | fail-loud ABORT（観測 3 の handler で処理済み） |
+
+**fail-safe ABORT（設計書あり + 設計後コミットあり + マーカーなし）**: 初回起動扱いで既存設計書を上書きしないよう停止する。
+
+```bash
+cat <<'VERDICT_BLOCK'
+---VERDICT---
+status: ABORT
+reason: |
+  Ambiguous restart state: design doc + post-design commit exist but no
+  kaji-verdict BACK/BACK_DESIGN marker was found among issue comments.
+evidence: |
+  観測 1 と観測 2 が真だが、design 再入マーカーが 0 件だった。
+suggestion: |
+  直近の BACK 判定コメントを
+  `uv run kaji issue comment [issue_id] --verdict-step [step] --verdict-status BACK --body <再投稿内容>`
+  で marker 付きに再投稿してから `/issue-design [issue_id]` を再実行してください。
+---END_VERDICT---
+VERDICT_BLOCK
+exit 1
+```
+
+> **マーカー単一情報源**: producer の判定コメントは status によらず marker を持つ。review-design の RETRY や final-check の選択肢を BACK と誤認しない。保守点は design 行き status 集合だけに限定する。
 
 > **fail-loud**: kaji CLI / GitHub API が失敗した場合に `2>/dev/null` で stderr を握りつぶし「BACK 検出ゼロ → 初回フロー」と silent fallthrough すると、本 Issue が防ぎたかった failure mode（既存設計書を上書きする scope 違反）を別経路で再発させる。観測 3 のパイプラインは stderr 抑止を付けず、`$BACK_COUNT` が空文字なら **`---VERDICT--- status: ABORT ... ---END_VERDICT---` ブロックを stdout に出力した上で** skill を終了し、Step 2 以降に進まない（`exit 1` 単体では workflow runner が `VerdictNotFound` 扱いとなり `on:ABORT` 遷移が成立しないため、verdict block の出力は必須）。
 
@@ -240,7 +249,15 @@ Step 1.6 で BACK 経由再起動と判定された場合のみ実行する。`P
 #### サブステップ
 
 1. **既存設計書の読込**: `[worktree_dir]/draft/design/issue-[issue_id]-*.md` を `Read` で読む
-2. **直近 BACK verdict の特定**: Step 1.6 と同じ jq comment-unit + heading gate + BACK marker フィルタを用い、`[x] Changes Requested / BACK` または `\| 判定 \|.*BACK` を含む comment のうち **直近のもの** から指摘リストを抽出する。発行元 step（`review-code` / `i-dev-final-check` 等）は問わない
+2. **直近 BACK verdict の特定**: Step 1.6 と同じ marker filter で body 1 行目に `<!-- kaji-verdict: step=<step> status=(BACK|BACK_DESIGN) -->` を持つ comment のうち配列末尾を選び、2 行目以降から指摘を抽出する。発行元 step は問わない。
+
+   ```bash
+   uv run kaji issue view [issue_id] --json comments \
+     | jq -r '[
+         .comments[]
+         | select(.body | test("^<!-- kaji-verdict: step=[a-z][a-z0-9_-]* status=(BACK|BACK_DESIGN) -->"))
+       ] | last | .body'
+   ```
 3. **指摘の分類**: 各指摘を「設計起因」「実装起因」に分類する
    - **設計起因**: 設計書の不備が原因の指摘（IF 設計の漏れ、テスト戦略の未定義、一次情報不足、影響ドキュメント漏れ等）
    - **実装起因**: 設計は正しいが実装が逸脱した指摘（見出し表記、コード品質、テスト失敗等）
@@ -250,6 +267,8 @@ Step 1.6 で BACK 経由再起動と判定された場合のみ実行する。`P
    - 設計レビュー観点で根本的に修正不能（例: 一次情報そのものが消失、要件の前提が崩壊） → **`ABORT`**
 
 判定根拠（どの指摘を設計起因と判定したか）はコメントに必ず含める。
+
+> **verdict マーカーの付与（必須）**: 下記コメントは `uv run kaji issue comment [issue_id] --commit --verdict-step design --verdict-status <STATUS> --body-file -` で投稿する。`<STATUS>` は `PASS` または `ABORT`。このコメント自身は BACK 再入の計数対象にならない。
 
 #### コメント書式（修正なし: 設計変更不要）
 
@@ -523,8 +542,12 @@ cd [worktree_dir] && git add draft/design/ && git commit -m "docs: add design fo
 
 設計完了をIssueにコメントします。
 
+**verdict マーカーの無条件付与（必須）**: 設計完了コメントには `--verdict-step design --verdict-status PASS` を付与する。`status=PASS` のため Step 1.6 の BACK 再入検出にはヒットしない。
+
 ```bash
-uv run kaji issue comment [issue_id] --commit --body-file - <<'EOF'
+uv run kaji issue comment [issue_id] --commit \
+  --verdict-step design --verdict-status PASS \
+  --body-file - <<'EOF'
 ## 設計書作成完了
 
 設計書を作成しました。

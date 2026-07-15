@@ -239,6 +239,10 @@ fi
 > ```
 
 > **重要**: PR body に `Closes [issue_ref]` を必ず含めること。これにより GitHub の Development sidebar に正式リンクが作成される。
+>
+> **repository 設定の前提**: Settings → General → Features → Issues の **Auto-close issues with merged linked pull requests** を無効化する。GitHub は PR↔Issue の正式リンクと linked PR merge 時の auto-close を不可分に扱い、この設定は API から検証できない。template 利用時に人間が無効化を確認すること。無効化しない場合、`/issue-close` より先に Issue が閉じる。
+>
+> この設定が抑止するのは linked PR 経由だけであり、commit message 経由を抑止する保証はない。commit body / merge commit message 側の closing keyword 回避規約は維持し、`Closes` + Issue 番号を書いてよいのは PR description のこの1行だけとする。正本は [`docs/dev/shared_skill_rules.md`](../../../docs/dev/shared_skill_rules.md)。
 
 > **マージ規約**: merge 規約は `--no-ff` only（squash merge 禁止）。マージ自体は `/issue-close` の責務だが、PR タイトルとコミットは Conventional Commits に従うこと（`docs/dev/git-workflow.md` 参照）。
 

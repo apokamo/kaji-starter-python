@@ -2,12 +2,16 @@
 
 workflow 5 本の使い分け・skill lifecycle・完了確認の分担。
 
+複数 Issue の直列実行計画は `/series-create` で `.kaji/series/<id>.yaml` を生成し、`uv run kaji run-series` で実行する。skill は validate と dry-run まで行い、実行自体は開始しない。
+
+kaji v0.15.0 では workflow failure triage が既定で有効で、失敗分類・証跡コメント・incident 集約を package 側で行う。自動再開は `execution.auto_recover = true` の明示 opt-in。第2層の incident 調査 workflow は高度な任意運用資産であり、この最小 starter には同梱しない。
+
 ## 初回セットアップ（template から作った直後に一度だけ）
 
 1. `.kaji/config.toml` の `provider.github.repo` を自分の repo に書き換える。`AGENTS.md` の `<project-name>` を埋める。LICENSE は自分のプロジェクトのものに差し替えてよい（starter は 0BSD で帰属義務なし）。package を rename する場合はここで行う
 2. `uv sync` → `make check` を実行（rename すると `uv.lock` が再生成される）
 3. 上記をまとめて `git commit` して main へ反映する（`uv sync` の後に commit することで `uv.lock` 差分も含まれる。未 commit のまま workflow を回すと最初の feature PR に混入する）
-4. `scripts/setup_labels.sh` で workflow が使う `type:*` ラベルを作成する（GitHub ラベルは template 複製されないため）。local provider のみで使う場合は不要
+4. `scripts/setup_labels.sh` で workflow が使う `type:*`、`epic`、`incident:*` ラベルを作成する（GitHub ラベルは template 複製されないため）。local provider のみで使う場合は不要
 
 ## workflow 5 本の使い分け
 

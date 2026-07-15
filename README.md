@@ -8,7 +8,7 @@ issue-driven development workflow (design → implement → review → PR) from 
 - Python project skeleton (`src/` layout / `uv` / `ruff` / `mypy` / `pytest` / `Makefile`)
 - kaji preinstalled (as a dev dependency; run it with `uv run kaji`)
 - Five workflow YAMLs (3 for the GitHub provider + 2 for the local provider, claude single-agent setup)
-- 23 generalized skills (`.claude/skills/`; non-Claude agents reference them via `.agents/skills/`)
+- 24 generalized skills (`.claude/skills/`; non-Claude agents reference them via `.agents/skills/`), including `/series-create` for validated sequential Issue plans
 
 Supported environments: Linux / macOS / WSL2 (native Windows is not supported — use WSL2).
 
@@ -39,16 +39,20 @@ git add -A && git commit -m "chore: initial setup"
 #    ^ Commit after `uv sync` so uv.lock is included. If left uncommitted, these setup
 #      changes leak into your first feature PR.
 
-# 5. GitHub auth and label creation
-gh auth status
-scripts/setup_labels.sh                    # create the type:* labels the workflow uses (first time only)
+# 5. Disable "Auto-close issues with merged linked pull requests"
+#    in GitHub Settings > General > Features > Issues. The workflow links PRs to
+#    Issues but closes Issues explicitly in its final step.
 
-# 6. Run the first workflow
+# 6. GitHub auth and label creation
+gh auth status
+scripts/setup_labels.sh                    # create type:*, epic, and incident labels (first time only)
+
+# 7. Run the first workflow
 uv run kaji issue create --title "..." --body-file issue.md --label type:feature
 uv run kaji run .kaji/wf/dev.yaml <issue-id>
 ```
 
-GitHub labels (`type:*`) are not copied by "Use this template", so create them once with
+GitHub labels (`type:*`, `epic`, and `incident:*`) are not copied by "Use this template", so create them once with
 `scripts/setup_labels.sh` (the workflow's issue creation depends on these labels).
 
 To try it without GitHub, use the local provider. Unlike `dev.yaml`, `dev-local.yaml`
