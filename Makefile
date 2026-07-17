@@ -1,10 +1,10 @@
-.PHONY: check lint format fmt typecheck test test-small test-medium test-large \
+.PHONY: check lint format fmt typecheck validate-workflows test test-small test-medium test-large \
         verify-docs setup help
 
 SOURCES := src/ tests/ scripts/
 TYPED := src/ tests/ scripts/
 
-check: lint format typecheck test
+check: lint format typecheck validate-workflows test
 
 lint:
 	ruff check $(SOURCES)
@@ -20,6 +20,9 @@ fmt:
 
 typecheck:
 	mypy $(TYPED)
+
+validate-workflows:
+	uv run kaji validate .kaji/wf/*.yaml
 
 test:
 	pytest
@@ -41,8 +44,9 @@ setup:
 
 help:
 	@echo "Common targets:"
-	@echo "  make check        - lint + format(check) + typecheck + test"
+	@echo "  make check        - lint + format(check) + typecheck + workflow validation + test"
 	@echo "  make fmt          - apply ruff format (mutating)"
+	@echo "  make validate-workflows - validate all tracked workflows"
 	@echo "  make test         - pytest (all markers)"
 	@echo "  make test-small   - pytest -m small"
 	@echo "  make test-medium  - pytest -m medium"

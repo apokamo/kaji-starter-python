@@ -48,6 +48,18 @@ cross-skill 契約は skill の自由記述ではなく kaji CLI が付与する
 | worktree パス解決 | `.claude/skills/_shared/worktree-resolve.md` | Issue 本文 NOTE ブロックから worktree パスを取得 |
 | 無関係な問題の報告 | `.claude/skills/_shared/report-unrelated-issues.md` | 作業中に発見した無関係な問題の報告手順 |
 | 設計書の昇格 | `.claude/skills/_shared/promote-design.md` | draft 設計書から恒久ドキュメントへの昇格手順 |
+| 重要判断と provenance | `.claude/skills/_shared/critical-decision-checklist.md` | 人間決定・AI 仮定・one-way door の分類と停止条件 |
+
+## 重要判断の伝播（共通）
+
+`grill-me` / `issue-review-ready` / `issue-design` / `issue-review-design` は
+[`critical-decision-checklist.md`](../../.claude/skills/_shared/critical-decision-checklist.md)
+を単一情報源として使う。人間が指定した source of truth と重要方針を後段へ伝播し、
+AI の仮定は provenance で区別する。記述を補えば直る不備は `RETRY`、人間の決定が
+存在しない one-way door は `ABORT` とし、AI の fix step へ判断を委ねない。
+
+`grill-me` は workflow 外の有人 front-load であり、未決を質問して Issue 本文へ固定する。
+後続3 skill は無人 workflow 内でその決定を検査・伝播し、新たな人間判断を代行しない。
 
 ## スキル実体
 

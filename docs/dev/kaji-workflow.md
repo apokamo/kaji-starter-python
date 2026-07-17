@@ -4,7 +4,7 @@ workflow 5 本の使い分け・skill lifecycle・完了確認の分担。
 
 複数 Issue の直列実行計画は `/series-create` で `.kaji/series/<id>.yaml` を生成し、`uv run kaji run-series` で実行する。skill は validate と dry-run まで行い、実行自体は開始しない。
 
-kaji v0.15.0 では workflow failure triage が既定で有効で、失敗分類・証跡コメント・incident 集約を package 側で行う。自動再開は `execution.auto_recover = true` の明示 opt-in。第2層の incident 調査 workflow は高度な任意運用資産であり、この最小 starter には同梱しない。
+kaji v0.16.0 では workflow failure triage が既定で有効で、失敗分類・証跡コメント・incident 集約を package 側で行う。自動再開は `execution.auto_recover = true` の明示 opt-in。第2層の incident 調査 workflow は高度な任意運用資産であり、この最小 starter には同梱しない。
 
 ## 初回セットアップ（template から作った直後に一度だけ）
 
@@ -66,10 +66,11 @@ uv run kaji run .kaji/wf/dev-local.yaml <issue-id>
 
 | フェーズ | skill |
 |---------|--------|
-| 起票 | `/issue-create` |
+| 起票 | `/issue-create` → (`/grill-me`: 任意・明示起動) |
 | 着手前ゲート | `/issue-review-ready` → (`/issue-fix-ready`) |
 | 着手 | `/issue-start` |
 | 設計 | `/issue-design` → `/issue-review-design` → (`/issue-fix-design` → `/issue-verify-design`) |
+| Baseline | `baseline-precheck`（設計レビュー後、agentless） |
 | 実装 | `/issue-implement` → `/issue-review-code` → (`/issue-fix-code` → `/issue-verify-code`) |
 | docs-only | `/i-doc-update` → `/i-doc-review` → (`/i-doc-fix` → `/i-doc-verify`) |
 | 最終チェック | `/i-dev-final-check` / `/i-doc-final-check` |
@@ -87,11 +88,28 @@ uv run kaji run .kaji/wf/dev-local.yaml <issue-id>
 | 項目 | review-ready | design / review-design | implement / review-code | final-check |
 |------|--------------|------------------------|-------------------------|-------------|
 | Issue 本文の記述品質 | ✅ | - | - | - |
-| テスト戦略の妥当性 | - | ✅ | - | ✅（確認） |
+| テスト戦略・変更前 baseline | - | ✅ | baseline step | ✅（確認） |
 | docs 影響評価 | - | ✅ | ✅ | ✅（確定） |
 | 実装・差分の整合 | - | - | ✅ | ✅（集約） |
 | 品質 gate（`make check`） | - | - | 実施 | ✅（最終確認） |
-| Issue 本文更新・PR 可否判定 | - | - | - | ✅ |
+| Issue 本文更新・PR 可否判定 | - | - | - | ✅（事後確認を除く） |
+
+未完了の `### ワークフロー完了後の確認項目` は final-check の PASS 判定から除外し、
+`issue-close` が follow-up Issue へ移管してから親 Issue を close する。分類と証跡責務は
+[workflow_completion_criteria.md](workflow_completion_criteria.md) を正本とする。
+
+## workflow 開始前の有人 interview
+
+one-way door を含みうる重要な Issue では、`/issue-create` 後に人間が
+[`/grill-me <issue_id>`](../../.claude/skills/grill-me/SKILL.md) を明示起動できる。
+決定事項を Issue 本文へ固定した後、通常どおり `/issue-review-ready` へ進む。
+軽微な Issue では省略してよく、workflow YAML の step には組み込まない。
+
+## Deterministic Baseline Check
+
+3本の dev workflow は design review / verify の PASS 後に agentless な `baseline` step を実行し、
+PASS の場合だけ `implement` へ進む。artifact、既知 failure、regression 比較の正本は
+[baseline-check.md](baseline-check.md) とする。
 
 ## AI 単独で達成不能な検証の扱い
 

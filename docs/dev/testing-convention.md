@@ -67,3 +67,9 @@ make test-large    # pytest -m large
 - [ ] 変更タイプ（実行時コード変更 / docs-only / 設定変更）が明示されているか
 - [ ] 実行時コード変更なら Small / Medium / Large の検証観点が定義されているか
 - [ ] 恒久テストを追加しない場合、その理由が 4 条件に沿って説明されているか
+
+## Baseline failure の扱い
+
+変更前から失敗がある場合は、[baseline-check.md](baseline-check.md) の構造化 artifact と
+`python -m kaji_harness.scripts.baseline_precheck --compare` を使い、新規 FAILED/ERROR のみを
+regression とする。Issue コメントや pytest の表示文字列を比較の正本にしない。

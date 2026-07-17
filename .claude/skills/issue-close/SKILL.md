@@ -50,7 +50,7 @@ $ARGUMENTS = <issue_id>
 コンテキスト変数 `issue_id` が存在すればそちらを使用。
 なければ `$ARGUMENTS` の第1引数を `issue_id` として使用。
 
-`issue_ref` はハーネス経由ではプロンプトに自動注入される（provider 別に整形済み）。手動実行時は `issue_id` から導出する: GitHub 数値 ID なら `#<issue_id>`、`local-*` 形式なら bare ID（`#` を付けない）。
+`issue_ref` はハーネス経由ではプロンプトに自動注入される（`prompt.py` 側で provider 別に整形）。手動実行時は `issue_id` から導出する: GitHub 数値 ID なら `#<issue_id>`、`local-*` 形式なら bare ID（`#` を付けない）。
 
 ## 前提条件
 
@@ -65,8 +65,145 @@ $ARGUMENTS = <issue_id>
   Step 1〜6 を順に実行する（`uv run kaji pr merge` / worktree 削除 / branch 削除 /
   `git pull` / `uv run kaji issue close` / 報告）。
 - `[provider_type]` が `local` → 後述の **provider=local の場合** セクションへ
-  ジャンプし、local 用の手順 (6 step) を実行する。
-  github 用の Step 1〜6 は実行しない（PR 概念が無いため）。
+  ジャンプし、design.md § local mode における /issue-close の手順 (6 step) を
+  実行する。github 用の Step 1〜6 は実行しない（PR 概念が無いため）。
+
+## 共通: ワークフロー完了後の確認項目の移管
+
+親 Issue を close する直前に、provider に関係なく本手順を実行する。
+正本は
+[`docs/dev/workflow_completion_criteria.md`](../../../docs/dev/workflow_completion_criteria.md)
+§ follow-up Issue への移管、本文 template は
+[`templates/follow-up-issue.md`](templates/follow-up-issue.md) とする。
+
+### 1. 未完了項目の抽出
+
+親本文の `## 完了条件` 内にある末尾サブセクション
+`### ワークフロー完了後の確認項目` だけを対象にし、次の `## ` 見出しまたは本文末尾までから
+`- [ ]` の項目を抽出する。
+
+| 状態 | 処理 |
+|------|------|
+| セクションなし | follow-up なしで close 手順を続行 |
+| `- なし`、または未チェック項目 0 件 | follow-up なしで close 手順を続行 |
+| 未チェック項目 1 件以上 | 以降の検索・作成・マーカー追記を実行 |
+| 見出し重複、チェックリストとして解釈不能 | 項目喪失を避けるため `ABORT` |
+
+`i-dev-final-check` / `i-doc-final-check` が同サブセクションを更新対象外としているため、
+ここに残る `[ ]` は未完了のまま follow-up へ移す。`[x]` は移さない。
+
+### 2. 親マーカーと既存 Issue の確認
+
+follow-up のタイトルは次の完全一致形式に固定する。
+
+```text
+[follow-up] [parent_title] ([issue_ref])
+```
+
+まず親本文に次のマーカーがあるか確認する。
+
+```text
+<!-- kaji-follow-up-issue: [follow_up_issue_id] -->
+```
+
+- マーカーが 1 件ある場合: 値を `FOLLOW_UP_ID` に設定して `uv run kaji issue view` で確認し、
+  次の 3 点をすべて満たすときだけ再利用する
+  1. `state` が `open` である
+  2. title が完全一致形式である
+  3. 本文に `<!-- kaji-follow-up-parent: [issue_ref] -->` が 1 件ある
+- マーカーが複数、値が空、参照先が存在しない場合: `ABORT`
+- マーカーの参照先が close 済みの場合: `ABORT`。未チェック項目が親に残っているのに
+  追跡先が閉じている状態であり、close 済み follow-up を再利用すると追跡が失われる。
+  同名タイトルの open Issue 検索へフォールバックしてもマーカーとの不整合が残るため、
+  自動復旧はしない。人間が (a) 完了済みの項目を親本文で `[x]` に更新する、
+  (b) follow-up Issue を reopen する、(c) 親のマーカー行を削除して再作成させる、
+  のいずれかを選んだうえで再実行する
+- マーカーがない場合: open Issue を完全一致タイトルで検索する
+
+```bash
+FOLLOW_UP_STATE=$(uv run kaji issue view "$FOLLOW_UP_ID" --json state -q '.state')
+# GitHub は OPEN/CLOSED、local は open/closed を返すため小文字化して比較する
+case "$(printf '%s' "$FOLLOW_UP_STATE" | tr '[:upper:]' '[:lower:]')" in
+  open) : ;;
+  *)
+    echo "ABORT: marked follow-up Issue $FOLLOW_UP_ID is not open (state=$FOLLOW_UP_STATE)"
+    exit 1
+    ;;
+esac
+```
+
+```bash
+PARENT_TITLE=$(uv run kaji issue view [issue_id] --json title -q '.title')
+FOLLOW_UP_TITLE="[follow-up] $PARENT_TITLE ([issue_ref])"
+uv run kaji issue list --state open --limit 1000 --json number,title > /tmp/kaji-open-issues.json
+jq -r --arg title "$FOLLOW_UP_TITLE" \
+  '.[] | select(.title == $title) | .number' \
+  /tmp/kaji-open-issues.json > /tmp/kaji-follow-up-candidates.txt
+```
+
+| 完全一致件数 | 処理 |
+|-------------|------|
+| 0 | 新規作成 |
+| 1 | 候補の `.number` を `FOLLOW_UP_ID` に設定し、既存 open Issue を再利用 |
+| 2 以上 | 対象を一意に決められないため `ABORT` |
+
+作成後にマーカー追記だけが失敗した場合も、再実行時は完全一致検索で作成済み Issue を
+再利用する。これにより重複起票を防ぐ。
+
+### 3. follow-up Issue の作成
+
+完全一致候補がない場合だけ、`templates/follow-up-issue.md` を読み、以下を実値へ置換して
+`/tmp/kaji-follow-up-body.md` を作る。
+
+- `[parent_issue_ref]` / `[parent_issue_title]`
+- `[unchecked_items]`: 抽出した未チェック項目だけ
+- `[reference_docs]`: 親本文の `docs/...` 参照。なければ正本
+  `docs/dev/workflow_completion_criteria.md`
+
+```bash
+CREATE_OUTPUT=$(uv run kaji issue create \
+  --title "$FOLLOW_UP_TITLE" \
+  --body-file /tmp/kaji-follow-up-body.md) || {
+    echo "ABORT: follow-up Issue creation failed"
+    exit 1
+  }
+FOLLOW_UP_ID=${CREATE_OUTPUT##*/}
+
+# local provider では create した issue.md を atomic commit する。
+# github provider では --commit が除去されるため同じコマンドを使える。
+uv run kaji issue edit "$FOLLOW_UP_ID" --commit \
+  --body-file /tmp/kaji-follow-up-body.md || {
+    echo "ABORT: follow-up Issue persistence failed"
+    exit 1
+  }
+```
+
+### 4. 親本文へのマーカー追記
+
+親本文に有効なマーカーがなかった場合だけ、新規作成・既存検索で得た Issue ID の
+マーカーを親本文末尾へ 1 件追記する。Step 2 で有効なマーカーを確認済みの場合は追記を
+スキップし、既存の 1 件を維持する。
+
+```bash
+CURRENT_BODY=$(uv run kaji issue view [issue_id] --json body -q '.body')
+{
+  printf '%s\n\n' "$CURRENT_BODY"
+  printf '<!-- kaji-follow-up-issue: %s -->\n' "$FOLLOW_UP_ID"
+} > /tmp/kaji-parent-body-with-follow-up.md
+
+uv run kaji issue edit [issue_id] --commit \
+  --body-file /tmp/kaji-parent-body-with-follow-up.md || {
+    echo "ABORT: parent follow-up marker update failed; parent Issue remains open"
+    exit 1
+  }
+```
+
+追記後、`uv run kaji issue view` で同じマーカーが 1 件だけ存在することを確認する。作成・再利用、
+マーカー追記、追記後確認のいずれかが失敗した場合は `ABORT` とし、親 Issue の close を
+実行しない。
+
+> **結果を記録**: `follow_up_result` = 「対象なし」/「作成: [follow_up_issue_id]」/
+> 「既存再利用: [follow_up_issue_id]」。完了報告に含める。
 
 ### provider=github の場合
 
@@ -79,7 +216,7 @@ uv run kaji issue view [issue_id] --json body -q '.body'
 ```
 
 以下の情報を抽出:
-- `> **Worktree**: \`../[worktree_dirname]\`` → worktree パス（`/issue-start` が記録した値）
+- `> **Worktree**: \`../kaji-[prefix]-[issue_id]\`` → worktree パス
 - `> **Branch**: \`[prefix]/[issue_id]\`` → ブランチ名
 
 ### Step 2: メインリポジトリのパスを特定
@@ -112,7 +249,7 @@ uv run kaji pr merge [branch_name]
 ### Step 4: worktree削除
 
 ```bash
-git worktree remove "$MAIN_REPO/../[worktree_dirname]"
+git worktree remove "$MAIN_REPO/../kaji-[prefix]-[issue_id]"
 ```
 
 > `$MAIN_REPO` は Step 2 で取得済み。
@@ -172,6 +309,11 @@ git pull [git_remote] [default_branch]
 
 > **結果を記録**: `pull_result` = 「最新化済み」。この値は Step 6 で使用する。
 
+### Step 5.4: ワークフロー完了後の確認項目を移管
+
+「共通: ワークフロー完了後の確認項目の移管」を実行する。失敗時は `ABORT` とし、
+Step 5.5 へ進まない。
+
 ### Step 5.5: Issue クローズ
 
 ```bash
@@ -201,6 +343,7 @@ uv run kaji issue comment [issue_id] --commit --body-file - <<'COMMENT_EOF'
 | ローカルブランチ | [local_branch_result] |
 | リモートブランチ | [remote_branch_result] |
 | main | [pull_result] |
+| follow-up Issue | [follow_up_result] |
 | Issue | [close_result] |
 COMMENT_EOF
 
@@ -223,13 +366,14 @@ COMMENT_EOF
 | ローカルブランチ | [local_branch_result] |
 | リモートブランチ | [remote_branch_result] |
 | main | [pull_result] |
+| follow-up Issue | [follow_up_result] |
 | Issue 状態 | [close_result] |
 ```
 
 ### provider=local の場合
 
 `[provider_type]` が `local` のとき、PR 概念が無いため
-以下の local 用手順 (6 step) を実行する。
+design.md § local mode における /issue-close の手順 (6 step) を実行する。
 
 > **重要 (worktree 運用)**: bare repository + worktree パターンでは
 > `[default_branch]` は **feature worktree とは別の worktree**（通常 main repo 側）
@@ -264,7 +408,7 @@ test -n "$BASE_WT" || { echo "ABORT: no worktree has [default_branch] checked ou
 
 cd "$BASE_WT"
 
-# Step 2.1: 3 段ガードによる救済 commit 判定
+# Step 2.1: 3 段ガードによる救済 commit 判定（Issue local-p1-16 B）
 #
 # 標準動線（各 skill での `uv run kaji issue {comment,edit} --commit`）が機能していれば
 # base worktree は clean。蓄積が残っている場合は LocalProvider 永続化由来の path
@@ -273,6 +417,7 @@ cd "$BASE_WT"
 # 救済対象 (LocalProvider 命名規則):
 #   - .kaji/issues/<issue_id>-<slug>/issue.md
 #   - .kaji/issues/<issue_id>-<slug>/comments/<4桁seq>-<machine_id>.md
+# 命名規則は installed kaji package の LocalProvider 契約に従う。
 DIRTY=$(git status --porcelain)
 if [ -n "$DIRTY" ]; then
     # 条件 1: dirty path がすべて [issue_id] の永続化 whitelist に一致するか検査
@@ -347,7 +492,12 @@ git merge --no-ff --no-edit [branch_name] || { echo "ABORT: merge conflict, reso
 
 衝突したら ABORT。Issue は open のまま、user が手動 resolve した後で再実行する。
 
-#### Step 4: Issue frontmatter 更新 + commit（base worktree 上で）
+#### Step 4: 事後確認の移管 + Issue frontmatter 更新 + commit（base worktree 上で）
+
+最初に「共通: ワークフロー完了後の確認項目の移管」を実行する。follow-up 作成または
+親マーカー追記に失敗した場合は `ABORT` とし、親 Issue を close しない。
+
+移管成功後、親 Issue を close する。
 
 ```bash
 uv run kaji issue close [issue_id] --reason completed
@@ -355,7 +505,7 @@ git add .kaji/issues/[issue_id]-*/issue.md
 git commit -m "chore(issue): close [issue_ref]" || { echo "ABORT: commit failed"; exit 1; }
 ```
 
-`--reason completed` は明示で書く（kaji 側の default も
+`--reason completed` は明示で書く（`LocalProvider.close_issue` の default も
 `completed` だが、Skill markdown 上で明示することで読み手の予期外を減らす）。
 
 **Step 4 完了で Issue close は確定**。以降の失敗は警告のみ。
@@ -388,7 +538,7 @@ status: PASS
 reason: |
   クローズ完了
 evidence: |
-  PR マージ・worktree 削除・main 最新化・Issue クローズ済み
+  事後確認の移管要否を確認し、必要な follow-up Issue の作成または再利用と親マーカー追記を完了した。PR マージ・worktree 削除・main 最新化・Issue クローズ済み
 suggestion: |
 ---END_VERDICT---
 ```
@@ -400,4 +550,4 @@ suggestion: |
 | status | 条件 |
 |--------|------|
 | PASS | クローズ完了 |
-| ABORT | クローズ失敗（`uv run kaji issue close` 失敗を含む / local merge 衝突） |
+| ABORT | follow-up 作成・再利用・親マーカー追記の失敗（マーカー参照先が close 済みの場合を含む）、またはクローズ失敗（`uv run kaji issue close` 失敗を含む / local merge 衝突） |

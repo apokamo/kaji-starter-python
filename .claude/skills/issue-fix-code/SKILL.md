@@ -48,15 +48,15 @@ $ARGUMENTS = <issue_id>
 コンテキスト変数 `issue_id` が存在すればそちらを使用。
 なければ `$ARGUMENTS` の第1引数を `issue_id` として使用。
 
-`issue_ref` はハーネス経由ではプロンプトに自動注入される（ハーネス側で provider 別に整形）。手動実行時は `issue_id` から導出する: GitHub 数値 ID なら `#<issue_id>`、`local-*` 形式なら bare ID（`#` を付けない）。
+`issue_ref` はハーネス経由ではプロンプトに自動注入される（`prompt.py` 側で provider 別に整形）。手動実行時は `issue_id` から導出する: GitHub 数値 ID なら `#<issue_id>`、`local-*` 形式なら bare ID（`#` を付けない）。
 
 ## 前提知識の読み込み
 
 以下のドキュメントを Read ツールで読み込んでから作業を開始すること。
 
-1. **変更種別と必須ゲート**: `docs/dev/change-types-and-gates.md`
+1. **開発ワークフロー**: `docs/dev/kaji-workflow.md`
 2. **テスト規約**: `docs/dev/testing-convention.md`
-3. **Python コーディング規約**: `docs/reference/python-standards.md`
+3. **Python スタイル**: `docs/reference/python-standards.md`
 
 ## 共通ルール
 
@@ -105,23 +105,27 @@ $ARGUMENTS = <issue_id>
 2. **品質チェック（コミット前必須）**:
 
    以下を実行し、**すべての基準をクリアするまでコミットしてはならない**。失敗した場合は原因を修正して再実行すること。
-   AGENTS.md の pre-commit 契約（`make check`）と等価。baseline failure
-   判定のため `pytest` を `&&` チェーンから切り離す必要がある。
+   AGENTS.md の pre-commit 契約（`make check`）と等価。artifact が `known_failures` の場合は
+   pytest を deterministic `--compare` に置換して分離する。
 
    #### 3.1 Lint / Format / 型チェック（exit 0 必須）
 
    ```bash
-   cd [worktree_dir] && source .venv/bin/activate && make lint && make format && make typecheck
+   cd [worktree_dir] && source .venv/bin/activate && make lint format typecheck
    ```
+
+   > `ruff format --check` は非破壊 gate（`make check` と等価）。整形差分で FAIL
+   > した場合は `make fmt` で整形し、
+   > 生じた差分をコミット対象に含めてから再チェックすること。
 
    #### 3.2 テスト実行
 
    ```bash
-   cd [worktree_dir] && source .venv/bin/activate && pytest
+   cd [worktree_dir] && source .venv/bin/activate && python -m kaji_harness.scripts.baseline_precheck --compare
    ```
 
-   **`pytest` は `&&` チェーンに含めず、必ず個別に実行する。** 合否判定は `issue-implement` Step 7b と
-   同一の基準（Baseline Check コメントの有無で分岐）を適用する。
+   合否判定は `issue-implement` Step 7b と同一とし、`verdict: ok`、regression 0 件を必須とする。
+   artifact / stale 判定の正本は [docs/dev/baseline-check.md](../../../docs/dev/baseline-check.md)。
 
 ### Step 4: コミット
 
@@ -152,7 +156,7 @@ uv run kaji issue comment [issue_id] --commit --body "$(cat <<'EOF'
 ## 品質チェック結果
 
 ```
-(make lint + make format + make typecheck + pytest の出力をそのまま貼り付け)
+(ruff check + ruff format --check + mypy + pytest の出力をそのまま貼り付け)
 ```
 
 ## 次のステップ

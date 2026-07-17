@@ -15,7 +15,7 @@ name: issue-design
 | Issue着手後、実装前 | ✅ 必須 |
 | worktreeが存在しない | ❌ 先に `/issue-start` を実行 |
 
-**ワークフロー内の位置**: create → start → **design** → review-design → implement → review-code → final-check → pr → close
+**ワークフロー内の位置**: create → start → **design** → review-design → implement → review-code → doc-check → i-dev-final-check → i-pr → close
 
 ## 入力
 
@@ -40,7 +40,7 @@ $ARGUMENTS = <issue_id>
 コンテキスト変数 `issue_id` が存在すればそちらを使用。
 なければ `$ARGUMENTS` の第1引数を `issue_id` として使用。
 
-`issue_ref` はハーネス経由ではプロンプトに自動注入される（harness が provider 別に整形する）。手動実行時は `issue_id` から導出する: GitHub 数値 ID なら `#<issue_id>`、`local-*` 形式なら bare ID（`#` を付けない）。
+`issue_ref` はハーネス経由ではプロンプトに自動注入される（`prompt.py` 側で provider 別に整形）。手動実行時は `issue_id` から導出する: GitHub 数値 ID なら `#<issue_id>`、`local-*` 形式なら bare ID（`#` を付けない）。
 
 ## 前提知識の読み込み
 
@@ -49,8 +49,9 @@ $ARGUMENTS = <issue_id>
 ### 共通（常に読み込む）
 
 1. **開発ワークフロー**: `docs/dev/kaji-workflow.md`
-2. **テスト規約**: `docs/dev/testing-convention.md`
-3. **コーディング規約**: `docs/reference/python-standards.md`
+2. **重要判断チェックリスト**: `.claude/skills/_shared/critical-decision-checklist.md`
+3. **テスト規約**: `docs/dev/testing-convention.md`
+4. **コーディング規約**: `docs/reference/python-standards.md`
 
 ## 前提条件
 
@@ -66,6 +67,12 @@ $ARGUMENTS = <issue_id>
 | **Primary Sources** | 一次情報（公式ドキュメント等）のURL/パスを必ず記載 |
 | **API仕様** | 公式リンク参照（コピペ禁止） |
 | **Test Strategy** | ID羅列ではなく検証観点を言語化 |
+| **Decision Provenance** | 人間決定の出典、AI の仮定、設計で行った詳細化を分離 |
+
+本フェーズは重要方針を新たに決める場ではなく、**決定済み方針を実装可能な粒度へ
+詳細化する場**である。詳細化と未決事項の境界は
+[_shared/critical-decision-checklist.md](../_shared/critical-decision-checklist.md)
+の可逆性基準で判定する。
 
 ### 一次情報のアクセス可能性ルール
 
@@ -82,6 +89,7 @@ $ARGUMENTS = <issue_id>
 ## 共通ルール
 
 - [_shared/report-unrelated-issues.md](../_shared/report-unrelated-issues.md) — 作業中に発見した無関係な問題の報告ルール
+- [_shared/critical-decision-checklist.md](../_shared/critical-decision-checklist.md) — 人間の重要判断、AI の仮定、one-way door の分類と停止条件の正本
 
 ## 実行手順
 
@@ -119,10 +127,32 @@ uv run kaji issue view [issue_id] --json labels --jq '[.labels[].name] | map(sel
 
 読み込んだ type 別ガイドは、Step 2 の設計書セクション構成・必須項目・テスト戦略の判断基準として使う。
 
+### Step 1.55: 重要判断の分類と停止判定
+
+Issue 本文・人間の Issue コメント・指定された source of truth を読み、
+`_shared/critical-decision-checklist.md` に従って判断を次の 3 種類に分類する。
+
+1. 決定済み方針の詳細化
+2. two-way door の未決
+3. one-way door の未決
+
+既存設計書がある場合は、その「重要判断 provenance」も入力に含める。人間が source of
+truth と指定した資料を、設計上の都合で上書き・弱化・参考資料へ格下げしない。一次情報
+同士が矛盾し、優先順位が人間未決なら AI が選択しない。
+
+- 分類 1: 出典と決定範囲を特定し、Step 2 で範囲内の詳細化を記録する
+- 分類 2: AI の仮定、根拠、後段の検査先を特定し、Step 2 で記録して進む
+- 分類 3: Step 2 以降へ進まず `ABORT`。`suggestion` に決めるべき項目、競合する
+  選択肢・情報源、再開条件を列挙する
+
+分類 3 になりやすい代表軸は、同正本の「one-way door になりやすい判断軸」を参照する。
+項目名ではなく「誤ったときに後段で安く直せるか」で判定する。人間決定は存在し、参照や
+書式が不足しているだけなら、設計書で provenance を補完して進めてよい。
+
 ### Step 1.6: BACK 経由再起動の検出と分岐
 
 `dev` workflow では `review-code` / `i-dev-final-check` 等が `BACK` verdict を返すと、戻し先が `design` の場合に本 skill が再起動される
-（`.kaji/wf/dev.yaml` の `review-code` の `BACK: design` 等）。この再起動経路では設計書・implementation commit が既に存在するため、初回起動を前提とした
+（`.kaji/wf/dev.yaml:134` の `review-code` の `BACK: design` 等）。この再起動経路では設計書・implementation commit が既に存在するため、初回起動を前提とした
 Step 2 以降の通常フローを素朴に実行すると scope 違反になる。本 Step では Step 1 で解決済みの `[worktree_dir]` を使って内部状態を観測し、初回起動 / BACK
 経由再起動を分岐する。
 
@@ -151,21 +181,40 @@ NON_DESIGN=$(git -C [worktree_dir] log --oneline [default_branch]..HEAD -- ':(ex
 
 # 3. 直近の戻し先 `design` の `BACK` verdict マーカーコメントの有無
 #    producer skill（review-code / i-dev-final-check / implement 等）は判定
-#    コメント投稿時に `uv run kaji issue comment --verdict-step <step>
-#    --verdict-status <STATUS>` を無条件付与し、CLI が body 1 行目に
-#    `<!-- kaji-verdict: step=<step> status=<STATUS> -->` を埋め込む。
+#    コメント投稿時に `uv run kaji issue comment --verdict-step <step> --verdict-status
+#    <STATUS>` を無条件付与し、CLI が body 1 行目に決定的な HTML マーカー
+#    `<!-- kaji-verdict: step=<step> status=<STATUS> -->` を埋め込む
+#    （契約の正本は installed kaji CLI が付与・検証する marker schema。
+#    cross-skill 契約は SKILL.md 散文ではなく CLI 層に置く）。
 #
-#    consumer はこのマーカーのみを参照する。旧来の判定見出しゲートと
-#    `[x] Changes Requested` / 判定表 regex は後方互換 fallback として残さない。
+#    consumer は **このマーカーのみ** を参照する。旧来の判定見出しゲート
+#    （`# コードレビュー結果` / `## 最終チェック結果` の OR）と旧 regex
+#    （`[x] Changes Requested / BACK` / `| 判定 |.*BACK`）は完全削除した
+#    （ADR 008 決定 1: 後方互換フォールバックを残さない。旧検出は一度も
+#    機能していないため互換対象の「動いていた過去」が存在しない）。
 #
 #    design を戻し先とする status 集合 = {BACK, BACK_DESIGN}
-#      - bare `BACK`（implement / review-code 発）と `BACK_DESIGN` は design 行き
-#      - `BACK_IMPLEMENT` / `BACK_FALLBACK` は完全一致で除外する
-#      - design 行き status を追加した場合だけ alternation を更新する
+#      - dev 系 workflow の bare `BACK`（implement / review-code 発）は常に
+#        design 行き。`BACK_DESIGN`（final-check 発）も design 行き
+#      - `BACK_IMPLEMENT` / `BACK_FALLBACK` は完全一致で除外される
+#        （regex は status トークン全体を照合。部分一致しない）
+#      - design を戻し先とする新 status を追加した場合のみ、この status 集合
+#        （`(BACK|BACK_DESIGN)` の alternation）に追記する
 #
-#    (a) body 1 行目を `^` で厳密照合し、本文中の marker 引用を除外する
-#    (b) `.comments[]` で comment 境界を維持する
-#    (c) kaji / jq 失敗は BACK_COUNT 空文字として fail-loud ABORT する
+#    (a) 1 行目マーカー厳密照合: `test()` は `m` フラグなしのため `^` は
+#        文字列先頭のみに一致 = body 1 行目のマーカーだけを検出する。過去
+#        コメント本文中の marker 引用（2 行目以降）への誤検出は構造的に
+#        起きない
+#    (b) comment 単位フィルタ: `.comments[]` イテレーションで comment 境界
+#        を維持する（複数 comment を改行連結した stream の grep 誤検出を排除）
+#    (c) fail-loud: kaji / jq が失敗した場合に「BACK 検出ゼロ＝初回起動」と
+#        silent fallthrough すると scope 違反を再発する。`2>/dev/null` を
+#        付けず、エラー時は BACK_COUNT が空文字となり (e) で ABORT に流す
+#
+#    `uv run kaji issue view --json comments` は top-level object で、コメント配列を
+#    `.comments` プロパティに持つ（各要素は GitHub REST API の Issue Comments
+#    リソース。`body` / `created_at` 等のフィールドあり）。gh 互換の `--json`
+#    フィールド指定形（https://cli.github.com/manual/gh_issue_view ）を使う。
 BACK_COUNT=$(uv run kaji issue view [issue_id] --json comments \
   | jq '[
       .comments[]
@@ -197,24 +246,26 @@ VERDICT_BLOCK
 fi
 # BACK_COUNT >= 1 → design 再入マーカーあり
 #
-# `--json comments` の `.comments[].body` は github / local 両 provider で
-# 共通に使えるため、provider 別の抽出器は不要。マーカーも同一形式。
+# provider 差分: `--json comments` は github / local 両 provider で同一構造
+# （`.comments[].body`）を返す（local は cli_main.py `_local_issue_view` が
+# gh 互換 `--json` を実装済み）。provider 別の抽出器は不要。マーカーは CLI が
+# 両 provider で同一形式で付与するため、consumer 側も provider 非依存。
 ```
 
 `[worktree_dir]` は Step 1 で取得した絶対パスを再利用する（再解決しない）。
 
 #### 分岐判定
 
-観測 1（既存設計書）・観測 2（設計後コミット）・観測 3（design 再入マーカー `BACK_COUNT >= 1`）で分岐する:
+観測 1（既存設計書）・観測 2（設計後コミット）・観測 3（design 再入マーカー `BACK_COUNT >= 1`）の 3 値で 4 分岐する:
 
 | 観測 1 | 観測 2 | 観測 3 | 分岐先 |
 |:---:|:---:|:---:|--------|
 | ✓ | ✓ | ✓ | BACK 経由再起動 → **Step 1.7** に進む |
 | ✓ | ✓ | ✗（`BACK_COUNT == 0`） | **曖昧状態 → fail-safe ABORT**（下記ブロックを stdout に出力して終了） |
 | ✗ または（✓ ∧ 観測 2 ✗） | | | 初回起動（または近接ケース） → **Step 2** 以降の通常フロー |
-| `BACK_COUNT` が空文字 | | | fail-loud ABORT（観測 3 の handler で処理済み） |
+| `BACK_COUNT` が空文字（パイプライン失敗） | | | fail-loud ABORT（観測 3 の (e) handler で処理済み） |
 
-**fail-safe ABORT（設計書あり + 設計後コミットあり + マーカーなし）**: 初回起動扱いで既存設計書を上書きしないよう停止する。
+**fail-safe ABORT（設計書あり + 設計後コミットあり + マーカーなし）**: 「設計書と設計後コミットが揃っているのに design 再入マーカーが 1 件も無い」曖昧状態では、初回起動扱いで Step 2 に進むと既存設計書を上書きしうる。この帰結を「上書き事故」から「一時停止」に変えるため ABORT する（決定 5・ADR 008 帰結。これは後方互換策ではなく恒久的な安全設計であり、producer のマーカー付与失敗時の backstop を兼ねる）。該当時は次のブロックを stdout に出力して skill を終了する（`[step]` / `[status]` は直近の BACK verdict の発行元・status に置換。不明なら `review-code` / `BACK`）:
 
 ```bash
 cat <<'VERDICT_BLOCK'
@@ -224,22 +275,24 @@ reason: |
   Ambiguous restart state: design doc + post-design commit exist but no
   kaji-verdict BACK/BACK_DESIGN marker was found among issue comments.
 evidence: |
-  観測 1 と観測 2 が真だが、design 再入マーカーが 0 件だった。
+  観測 1（設計書あり）と観測 2（設計後コミットあり）が真だが、観測 3 の
+  design 再入マーカー（<!-- kaji-verdict: ... status=(BACK|BACK_DESIGN) -->）が
+  0 件だった。初回起動扱いで Step 2 に進むと既存設計書を上書きするため停止する。
 suggestion: |
   直近の BACK 判定コメントを
   `uv run kaji issue comment [issue_id] --verdict-step [step] --verdict-status BACK --body <再投稿内容>`
-  で marker 付きに再投稿してから `/issue-design [issue_id]` を再実行してください。
+  で verdict マーカー付きに再投稿してから `/issue-design [issue_id]` を再実行してください。
 ---END_VERDICT---
 VERDICT_BLOCK
 exit 1
 ```
 
-> **マーカー単一情報源**: producer の判定コメントは status によらず marker を持つ。review-design の RETRY や final-check の選択肢を BACK と誤認しない。保守点は design 行き status 集合だけに限定する。
+> **マーカー単一情報源と誤検出防止**: 旧実装は「判定見出しゲート + `[x] Changes Requested / BACK` regex」を使い、producer 側テンプレートがその表現を一度も出力していなかったため BACK 検出が常に 0 だった（本 Issue の根本原因）。新実装は CLI が決定的に付与する 1 行目マーカーのみを参照する。producer の判定コメントは status によらず無条件でマーカーを持つため、review-design の RETRY コメントや final-check のメニュー行が BACK と誤検出されることは status 語彙レベルで構造的に排除される。「新しい判定 step を追加したら見出しリストに追記する」という旧保守点は消え、「design を戻し先とする新 status を追加したら観測 3 の status 集合（`(BACK|BACK_DESIGN)`）に追記する」だけになる。
 
 > **fail-loud**: kaji CLI / GitHub API が失敗した場合に `2>/dev/null` で stderr を握りつぶし「BACK 検出ゼロ → 初回フロー」と silent fallthrough すると、本 Issue が防ぎたかった failure mode（既存設計書を上書きする scope 違反）を別経路で再発させる。観測 3 のパイプラインは stderr 抑止を付けず、`$BACK_COUNT` が空文字なら **`---VERDICT--- status: ABORT ... ---END_VERDICT---` ブロックを stdout に出力した上で** skill を終了し、Step 2 以降に進まない（`exit 1` 単体では workflow runner が `VerdictNotFound` 扱いとなり `on:ABORT` 遷移が成立しないため、verdict block の出力は必須）。
 
 > **重要**: 「implementation 済みを検出したから ABORT する」という分岐は採用しない。BACK 経由再起動という workflow 仕様上の正当な遷移
-> （`BACK` = 差し戻し。前段ステップを再実行）に対しては Step 1.7 で `PASS` を返して通常フローに復帰させる。
+> （`docs/dev/workflow-authoring.md:130` の `BACK = 差し戻し。前段ステップを再実行` 定義）に対しては Step 1.7 で `PASS` を返して通常フローに復帰させる。
 
 ### Step 1.7: BACK 経由再起動時の修正/再確認フロー
 
@@ -249,15 +302,15 @@ Step 1.6 で BACK 経由再起動と判定された場合のみ実行する。`P
 #### サブステップ
 
 1. **既存設計書の読込**: `[worktree_dir]/draft/design/issue-[issue_id]-*.md` を `Read` で読む
-2. **直近 BACK verdict の特定**: Step 1.6 と同じ marker filter で body 1 行目に `<!-- kaji-verdict: step=<step> status=(BACK|BACK_DESIGN) -->` を持つ comment のうち配列末尾を選び、2 行目以降から指摘を抽出する。発行元 step は問わない。
+2. **直近 BACK verdict の特定**: Step 1.6 と同じ verdict マーカーフィルタを用いて、body 1 行目に `<!-- kaji-verdict: step=<step> status=(BACK|BACK_DESIGN) -->` を持つ comment のうち **配列末尾（直近）のもの** を選び、その 2 行目以降（判定コメント本体）から指摘リストを抽出する。発行元 step（マーカーの `step=` 値。`review-code` / `final-check` / `implement` 等）は問わない。抽出コマンド例:
 
-   ```bash
-   uv run kaji issue view [issue_id] --json comments \
-     | jq -r '[
-         .comments[]
-         | select(.body | test("^<!-- kaji-verdict: step=[a-z][a-z0-9_-]* status=(BACK|BACK_DESIGN) -->"))
-       ] | last | .body'
-   ```
+```bash
+uv run kaji issue view [issue_id] --json comments \
+  | jq -r '[
+      .comments[]
+      | select(.body | test("^<!-- kaji-verdict: step=[a-z][a-z0-9_-]* status=(BACK|BACK_DESIGN) -->"))
+    ] | last | .body'
+```
 3. **指摘の分類**: 各指摘を「設計起因」「実装起因」に分類する
    - **設計起因**: 設計書の不備が原因の指摘（IF 設計の漏れ、テスト戦略の未定義、一次情報不足、影響ドキュメント漏れ等）
    - **実装起因**: 設計は正しいが実装が逸脱した指摘（見出し表記、コード品質、テスト失敗等）
@@ -268,7 +321,7 @@ Step 1.6 で BACK 経由再起動と判定された場合のみ実行する。`P
 
 判定根拠（どの指摘を設計起因と判定したか）はコメントに必ず含める。
 
-> **verdict マーカーの付与（必須）**: 下記コメントは `uv run kaji issue comment [issue_id] --commit --verdict-step design --verdict-status <STATUS> --body-file -` で投稿する。`<STATUS>` は `PASS` または `ABORT`。このコメント自身は BACK 再入の計数対象にならない。
+> **verdict マーカーの付与（必須）**: 下記いずれのコメント書式を投稿する場合も、`uv run kaji issue comment [issue_id] --commit --verdict-step design --verdict-status <STATUS> --body-file - <<'EOF' ... EOF` の形で verdict マーカーを付与する。`<STATUS>` は本サブステップで返す status（`PASS` 復帰なら `PASS`、根本的に修正不能なら `ABORT`）に置換する。`status=PASS` / `status=ABORT` はいずれも Step 1.6 の BACK 再入検出（`BACK` / `BACK_DESIGN` のみ計数）にヒットしないため、この「設計再確認結果」コメント自身が次回の BACK 検出母集団を汚すことは構造的に起きない（旧実装ではこのコメントが regex を引用して誤検出源になっていた）。
 
 #### コメント書式（修正なし: 設計変更不要）
 
@@ -325,7 +378,7 @@ Step 1.6 で BACK 経由再起動と判定された場合のみ実行する。`P
 
 #### Step 1.7 終了後の挙動
 
-BACK 経由再起動フローで `PASS` を返した場合、Step 2 以降の通常フローは実行しない。`PASS` で復帰すれば `.kaji/wf/dev.yaml` の
+BACK 経由再起動フローで `PASS` を返した場合、Step 2 以降の通常フローは実行しない。`PASS` で復帰すれば `.kaji/wf/dev.yaml:82` の
 `design` の `PASS: review-design` 遷移が機能し、通常フロー（`review-design` → `implement` → `review-code`）が再開する。
 
 #### 初回起動への影響（後方互換）
@@ -384,6 +437,15 @@ Issue: [issue_ref]
 
 (実装の大まかな方針。疑似コードOK)
 
+## 重要判断 provenance
+
+| 判断 | 方針 | 出典または仮定 | 設計で行った詳細化 |
+|------|------|----------------|--------------------|
+| (後段で独立に検査できる判断) | (採用方針) | (Issue 本文/人間コメント/既存契約、または「AI の仮定」+ 根拠 + 後段の検査先) | (決定範囲内で具体化した内容) |
+
+> 重要判断がない場合も省略せず、「該当なし」と確認根拠を記載する。
+> source of truth の格下げ、出典のない one-way door、AI 仮定の人間決定への偽装は禁止。
+
 ## テスト戦略
 
 > **CRITICAL**: 変更タイプに応じて妥当な検証方針を定義すること。
@@ -423,10 +485,11 @@ Issue: [issue_ref]
 
 | ドキュメント | 影響の有無 | 理由 |
 |-------------|-----------|------|
-| docs/README.md | あり/なし | (docs 構成の変更がある場合) |
+| docs/adr/ | あり/なし | (新しい技術選定がある場合) |
+| docs/README.md | あり/なし | (ドキュメント構成が変わる場合) |
 | docs/dev/ | あり/なし | (ワークフロー・開発手順変更がある場合) |
-| docs/reference/ | あり/なし | (API仕様・規約・設定変更がある場合) |
-| docs/adr/ | あり/なし | (docs/adr/ を運用しており、新しい技術選定がある場合) |
+| docs/reference/ | あり/なし | (API仕様・規約変更がある場合) |
+| docs/cli-guides/ | あり/なし | (CLI仕様変更がある場合) |
 | AGENTS.md / CLAUDE.md | あり/なし | (規約変更がある場合) |
 
 ## 参照情報（Primary Sources）
@@ -450,6 +513,7 @@ Issue: [issue_ref]
    - [ ] インターフェース（入力・出力）
    - [ ] 制約・前提条件
    - [ ] 方針
+   - [ ] 重要判断 provenance
    - [ ] テスト戦略（変更タイプに応じたセクション）
    - [ ] 影響ドキュメント
    - [ ] 参照情報（Primary Sources）
@@ -457,12 +521,23 @@ Issue: [issue_ref]
 2. **内容の妥当性確認**:
    - テスト戦略が変更タイプに対して妥当か
    - Primary Sources に根拠が記載されているか
+   - 重要判断 provenance で人間決定の出典、AI の仮定、設計で行った詳細化が分離されているか
+   - source of truth の格下げや one-way door の自己解釈がないか
    - 影響ドキュメントが網羅的か
 
 3. **Issue 完了条件の段階確認**:
-   Issue 本文に `## 完了条件` セクションがある場合、設計段階で確認可能な条件を確認する。
+   Issue 本文に `## 完了条件` セクションがある場合、
+   `### ワークフロー完了後の確認項目` を除いた設計段階で確認可能な条件を確認する。
    - 設計書に必要なセクションが完了条件の要求を満たしているか
    - 技術制約や前提条件が設計書に反映されているか
+
+4. **workflow 内 / workflow 外の分離確認**:
+   `docs/dev/workflow_completion_criteria.md` § workflow 内完了条件と事後確認の分離に従い、
+   workflow を RETRY して環境非依存で同じ結果を得られない項目が通常完了条件へ混在していないか確認する。
+   誤分類を見つけた場合は、現在の Issue 本文を取得し、項目の文言とチェック状態を維持したまま
+   `## 完了条件` の末尾サブセクション `### ワークフロー完了後の確認項目` との間で移動し、
+   `uv run kaji issue edit [issue_id] --commit --body-file /tmp/issue-body.md` で反映する。
+   事後確認がなければ同サブセクションを削除するか `- なし` とする。
 
 不足がある場合は設計書を補完してからコミットする。この段階で確認した条件は、Step 4 の Issue コメントに含めて後段への証跡とする。
 
@@ -478,6 +553,8 @@ Issue: [issue_ref]
    - 設計書「参照情報（Primary Sources）」の URL/パスが記載されているか
    - 一次情報の引用 / 要約が「設計判断の裏付け」として機能しているか
    - アクセス可能性ルール（公開URL / ログイン必須 / 社内限定）に違反していないか
+   - 設計書「重要判断 provenance」が 4 要素（判断 / 方針 / 出典または仮定 / 設計で行った詳細化）を持つか
+   - 人間決定の出典を検証でき、AI の仮定に根拠と後段の検査先があるか
 2. **Step 2 § type の取得と観点の重み付け**
    - 採用した type ラベルに対応する重み付け表（feat / bug / refactor / docs）と設計書の重点が整合しているか
    - **feat**: 代替案 / ユースケース / 使用例の有無
@@ -489,10 +566,15 @@ Issue: [issue_ref]
    - 3. 信頼性とエッジケース（Source of Truth / Error Handling / 一次情報との乖離）
    - 4. 検証可能性（テストサイズ別検証観点 / `docs/dev/testing-convention.md` の 4 条件マッピング / 不正当な省略理由の排除）
    - 5. 影響ドキュメント
+4. **重要判断と provenance**
+   - `_shared/critical-decision-checklist.md` の 3 分類と可逆性基準に従っているか
+   - 人間決定の出典と AI の仮定が区別され、仮定に後段の検査先があるか
+   - source of truth を上書き・弱化・格下げしていないか
+   - one-way door の未決が見つかった場合は handoff せず `ABORT` する
 
 #### Self-Check の実施手順
 
-1. 上記 3 節を順に Read する
+1. 上記 4 節を順に Read する
 2. 設計書を読み直し、各節の checklist 項目に対する充足度を内部で評価する
 3. 不足が見つかったら **Step 3 に進む前に設計書を補完** する（補完後、本 Step 2.6 を再実行）
 4. 結果（節ごとの判定と不足の有無）を Step 4 の Issue コメント `## Self-Check 結果` セクションに転記する
@@ -504,15 +586,19 @@ Issue: [issue_ref]
 
 - **経路**: main-session self-check
 - **対象 commit**: <git-sha>
-- **参照 rubric**: `/issue-review-design` SKILL.md Step 1.5 / Step 2 § type 重み付け / Step 2 § レビュー基準 1〜5
+- **参照 rubric**: `/issue-review-design` SKILL.md Step 1.5 / Step 2 § type 重み付け / Step 2 § 重要判断 audit / Step 2 § レビュー基準 1〜5
 
-### Step 1.5: Gate Check（一次情報）
+### Step 1.5: Gate Check（一次情報・provenance）
 - 判定: ✅ / ⚠️ / ❌
-- 根拠: 設計書「参照情報（Primary Sources）」セクションの状態
+- 根拠: 設計書「参照情報（Primary Sources）」と「重要判断 provenance」セクションの状態
 
 ### Step 2 § type 重み付け（type: <採用 type>）
 - 判定: ✅ / ⚠️ / ❌
 - 根拠: 重点観点との整合
+
+### Step 2 § 重要判断 audit
+- 判定: ✅ / ⚠️ / ❌
+- 根拠: provenance、人間決定、AI 仮定、source of truth の確認結果
 
 ### Step 2 § レビュー基準 1〜5
 - 1. 抽象化と責務の分離: ✅ / ⚠️ / ❌
@@ -542,7 +628,7 @@ cd [worktree_dir] && git add draft/design/ && git commit -m "docs: add design fo
 
 設計完了をIssueにコメントします。
 
-**verdict マーカーの無条件付与（必須）**: 設計完了コメントには `--verdict-step design --verdict-status PASS` を付与する。`status=PASS` のため Step 1.6 の BACK 再入検出にはヒットしない。
+**verdict マーカーの無条件付与（必須）**: 設計完了コメントには `--verdict-step design --verdict-status PASS` を付与する（design が完了時に返す status は `PASS`）。CLI が body 1 行目に `<!-- kaji-verdict: step=design status=PASS -->` を付与する。これは自身の判定コメントであり、無条件付与原則（ADR 008 決定 3）の一貫性のために付ける。`status=PASS` のため Step 1.6 の BACK 再入検出（`BACK` / `BACK_DESIGN` のみ計数）には決してヒットしない。
 
 ```bash
 uv run kaji issue comment [issue_id] --commit \
@@ -562,6 +648,10 @@ uv run kaji issue comment [issue_id] --commit \
 2. **Why**: (なぜこの設計か)
 3. **Constraints**: (主な制約)
 
+### 重要判断 provenance
+
+- (人間決定の出典、AI の仮定と検査先、設計で行った詳細化の要点)
+
 ### テスト戦略
 
 - (主要な検証ポイント)
@@ -572,7 +662,7 @@ uv run kaji issue comment [issue_id] --commit \
 
 ### 完了条件の段階確認
 
-この段階で確認可能な完了条件:
+この段階で確認可能な workflow 内完了条件（`### ワークフロー完了後の確認項目` は除外）:
 
 - [ ] (確認した条件1): ✅ 設計書の○○セクションで対応
 - [ ] (確認した条件2): ✅ 設計書の△△セクションで対応
@@ -624,6 +714,9 @@ suggestion: |
 | status | 条件 |
 |--------|------|
 | PASS | 設計書作成・コミット完了、または BACK 経由再起動時の設計再確認完了（Step 1.6 / 1.7）|
-| ABORT | 以下のいずれか: (a) Issue 要件が論理的に破綻しており、設計レベルで実現不能 / (b) BACK 経由再起動だが、指摘内容が設計レビュー観点で根本的に修正不能（例: 一次情報そのものが消失、要件の前提が崩壊）|
+| ABORT | 以下のいずれか: (a) one-way door が人間未決、または source of truth 間の優先順位が未決 / (b) Issue 要件が論理的に破綻しており、設計レベルで実現不能 / (c) BACK 経由再起動だが、指摘内容が設計レビュー観点で根本的に修正不能（例: 一次情報そのものが消失、要件の前提が崩壊）|
 
-> **重要**: 「既に implementation commit がある」「BACK 経由で再起動された」ことそれ自体は `ABORT` 条件に **含めない**。BACK 経由再起動は workflow YAML 仕様上の正当な遷移であり、Step 1.6 / 1.7 で `PASS` 復帰させる（`BACK` = 差し戻し。前段ステップを再実行、という仕様との整合）。
+one-way door の `ABORT` では、`suggestion` に人間が決める項目、競合する選択肢・
+情報源、再開条件を具体的に列挙する。設計 agent が妥当そうな方針を選んで続行しない。
+
+> **重要**: 「既に implementation commit がある」「BACK 経由で再起動された」ことそれ自体は `ABORT` 条件に **含めない**。BACK 経由再起動は workflow YAML 仕様上の正当な遷移であり、Step 1.6 / 1.7 で `PASS` 復帰させる（`docs/dev/workflow-authoring.md:130` の `BACK = 差し戻し。前段ステップを再実行` 定義との整合）。

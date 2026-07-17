@@ -10,7 +10,12 @@
 | docs-only | `docs/` / `README.md` / `AGENTS.md` / `CLAUDE.md` / `.claude/skills/` | `make verify-docs`（doc link check） |
 | 設定変更 | `.kaji/config.toml` / `.kaji/wf/*.yaml` | `uv run kaji validate .kaji/wf/*.yaml`（workflow YAML 変更時）+ 影響 docs の整合確認 |
 
-- 実行時コード変更を含む commit の前に `source .venv/bin/activate && make check` を必ず通す
+- 実行時コード変更を含む commit の前に、baseline が `clean` なら
+  `source .venv/bin/activate && make check` を必ず通す
+- baseline が `known_failures` の場合だけ、`make check` を
+  `make lint format typecheck validate-workflows` と
+  `python -m kaji_harness.scripts.baseline_precheck --compare` に分離する。
+  `--compare` は `verdict: ok` かつ regression 0 件を必須とする
 - docs のみの commit では `make check` を省略してよい（`make verify-docs` は通す）
 - 種別が混在する場合は、該当するすべての gate を通す
 
@@ -23,6 +28,7 @@
 | `make lint` | `ruff check` | `src/ tests/ scripts/` |
 | `make format` | `ruff format` | `src/ tests/ scripts/` |
 | `make typecheck` | `mypy`（strict） | `src/ scripts/` |
+| `make validate-workflows` | `uv run kaji validate` | `.kaji/wf/*.yaml` |
 | `make test` | `pytest` | `tests/` |
 
 ## 変更固有の一時検証

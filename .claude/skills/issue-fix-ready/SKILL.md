@@ -30,7 +30,7 @@ $ARGUMENTS = <issue_id>
 コンテキスト変数 `issue_id` が存在すればそちらを使用。
 なければ `$ARGUMENTS` の第1引数を `issue_id` として使用。
 
-`issue_ref` はハーネス経由ではプロンプトに自動注入される（harness が provider 別に整形する）。手動実行時は `issue_id` から導出する: GitHub 数値 ID なら `#<issue_id>`、`local-*` 形式なら bare ID（`#` を付けない）。
+`issue_ref` はハーネス経由ではプロンプトに自動注入される（`prompt.py` 側で provider 別に整形）。手動実行時は `issue_id` から導出する: GitHub 数値 ID なら `#<issue_id>`、`local-*` 形式なら bare ID（`#` を付けない）。
 
 ## 共通ルール
 
@@ -77,6 +77,19 @@ uv run kaji issue edit [issue_id] --commit --body "[updated-body]"
 - 既存の本文構造（概要・目的・完了条件）を維持する
 - 指摘に対応する箇所のみ修正する。無関係なセクションは変更しない
 - 1 次情報の追加では、推測で埋めず事実確認してから記載する
+
+#### workflow 内判定可能性（観点 14）の修正
+
+通常完了条件に workflow 外の確認が混在しているという指摘は、次の手順で修正する。
+
+1. `docs/dev/workflow_completion_criteria.md` § workflow 内完了条件と事後確認の分離を読む
+2. 各項目について、workflow を RETRY して環境非依存で同じ結果を得られるか判定する
+3. No の項目だけを `## 完了条件` の末尾サブセクション
+   `### ワークフロー完了後の確認項目` へ移す
+4. Yes の項目が事後確認欄に誤って置かれていれば通常完了条件へ戻す
+5. 事後確認がなければサブセクションを削除するか、チェックボックスではない `- なし` にする
+
+項目の文言とチェック状態は移動時に維持する。通常完了条件と事後確認の両方へ複製しない。
 
 ### Step 4: Issue コメント投稿
 
