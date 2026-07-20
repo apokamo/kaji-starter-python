@@ -123,8 +123,8 @@ wheels = [
 
 [[package]]
 name = "kaji"
-version = "0.16.0"
-source = { git = "https://github.com/apokamo/kaji?tag=v0.16.0#ea93e7733b07d07569c973d3555b8ec4e289dc18" }
+version = "0.16.1"
+source = { git = "https://github.com/apokamo/kaji?tag=v0.16.1#c83f573c4fcd50b08edf26343c4a6791857aa042" }
 dependencies = [
     { name = "jq" },
     { name = "pydantic" },
@@ -554,7 +554,7 @@ dev = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "kaji", git = "https://github.com/apokamo/kaji?tag=v0.16.0" },
+    { name = "kaji", git = "https://github.com/apokamo/kaji?tag=v0.16.1" },
     { name = "markdown-it-py", specifier = ">=3.0" },
     { name = "mypy", specifier = ">=1.10.0" },
     { name = "pytest", specifier = ">=8.0.0" },
