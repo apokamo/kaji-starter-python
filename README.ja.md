@@ -16,7 +16,8 @@
 
 前提: [uv](https://docs.astral.sh/uv/) / [gh](https://cli.github.com/) /
 agent CLI（既定は [Claude Code](https://claude.com/claude-code)。codex / gemini への
-寄せ替えは `scripts/set_agent.py`）。tmux 3.1+ は interactive terminal runner
+寄せ替えは `scripts/set_agent.py`。kaji 所有の `.kaji/wf/official/**` は書き換えず、
+変換結果は `.kaji/wf/custom/**` へ生成する）。tmux 3.1+ は interactive terminal runner
 （`execution.agent_runner = "interactive_terminal"`）利用時のみ必要で、既定の headless では不要。
 
 ```bash
@@ -47,7 +48,7 @@ scripts/setup_labels.sh                    # type:*、epic、incident ラベル�
 
 # 7. 最初の workflow 実行
 uv run kaji issue create --title "..." --body-file issue.md --label type:feature
-uv run kaji run .kaji/wf/dev.yaml <issue-id>
+uv run kaji run .kaji/wf/official/dev.yaml <issue-id>
 ```
 
 GitHub ラベル（`type:*`、`epic`、`incident:*`）は template では複製されないため、`scripts/setup_labels.sh` で
@@ -61,7 +62,7 @@ GitHub 連携なしで試す場合は local provider を使う。`dev.yaml` と�
 ```bash
 uv run kaji local init
 # 上記ガイドの手動 issue-create + issue-start 手順を実施してから:
-uv run kaji run .kaji/wf/dev-local.yaml <issue-id>
+uv run kaji run .kaji/wf/official/local/dev-local.yaml <issue-id>
 ```
 
 ## Documentation

@@ -30,6 +30,6 @@
 ## kaji workflow の最小前提
 
 - kaji は project-local 導入。CLI は `uv run kaji ...` で実行する
-- workflow 実行: `uv run kaji run .kaji/wf/dev.yaml <issue-id>`（5 本の使い分けは
+- workflow 実行: `uv run kaji run .kaji/wf/official/dev.yaml <issue-id>`（5 本の使い分けは
   [docs/dev/kaji-workflow.md](docs/dev/kaji-workflow.md)）
 - interactive terminal runner を使う場合は tmux 3.1+ のセッション内で実行する

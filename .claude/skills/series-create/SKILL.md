@@ -25,7 +25,7 @@ Preserve Issue order exactly. Require `--id` and at least one positive integer I
    uv run kaji issue view <issue> --json labels,title,state
    ```
 
-3. Read every `.kaji/wf/*.yaml` `description` and `requires_provider` value. For each member without an override, select candidates whose description says they are the standard series auto-selection target for the Issue's single `type:` label and whose provider is `github` or `any`.
+3. Read every `.kaji/wf/official/**/*.yaml` and `.kaji/wf/custom/**/*.yaml` `description` and `requires_provider` value. For each member without an override, select candidates whose description says they are the standard series auto-selection target for the Issue's single `type:` label and whose provider is `github` or `any`.
 4. Auto-select only when exactly one candidate remains. Display the Issue type and matching description sentence as the reason. If selection is ambiguous, request `--workflow <issue>=<path>`.
 5. Invoke the package-provided deterministic generator. Do not write YAML manually:
 

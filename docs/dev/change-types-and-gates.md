@@ -8,7 +8,7 @@
 |----------|------|---------------|
 | 実行時コード変更 | `src/` / `tests/` / `Makefile` / `pyproject.toml` | `make check`（lint + format + typecheck + test） |
 | docs-only | `docs/` / `README.md` / `AGENTS.md` / `CLAUDE.md` / `.claude/skills/` | `make verify-docs`（doc link check） |
-| 設定変更 | `.kaji/config.toml` / `.kaji/wf/*.yaml` | `uv run kaji validate .kaji/wf/*.yaml`（workflow YAML 変更時）+ 影響 docs の整合確認 |
+| 設定変更 | `.kaji/config.toml` / `.kaji/wf/**/*.yaml` | `make validate-workflows`（workflow YAML 変更時）+ 影響 docs の整合確認 |
 
 - 実行時コード変更を含む commit の前に、baseline が `clean` なら
   `source .venv/bin/activate && make check` を必ず通す
@@ -28,7 +28,7 @@
 | `make lint` | `ruff check` | `src/ tests/ scripts/` |
 | `make format` | `ruff format` | `src/ tests/ scripts/` |
 | `make typecheck` | `mypy`（strict） | `src/ scripts/` |
-| `make validate-workflows` | `uv run kaji validate` | `.kaji/wf/*.yaml` |
+| `make validate-workflows` | `uv run kaji validate` | tracked な `.kaji/wf/official/**` + `.kaji/wf/custom/**` |
 | `make test` | `pytest` | `tests/` |
 
 ## 変更固有の一時検証

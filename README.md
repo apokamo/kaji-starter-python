@@ -16,7 +16,9 @@ Supported environments: Linux / macOS / WSL2 (native Windows is not supported â€
 
 Prerequisites: [uv](https://docs.astral.sh/uv/) / [gh](https://cli.github.com/) /
 an agent CLI (the default is [Claude Code](https://claude.com/claude-code); switch to
-codex / gemini with `scripts/set_agent.py`). tmux 3.1+ is required only when using the
+codex / gemini with `scripts/set_agent.py`, which keeps kaji-owned `.kaji/wf/official/**`
+read-only and writes the converted variants under `.kaji/wf/custom/**`).
+tmux 3.1+ is required only when using the
 interactive terminal runner (`execution.agent_runner = "interactive_terminal"`); the default
 `headless` runner does not need it.
 
@@ -49,7 +51,7 @@ scripts/setup_labels.sh                    # create type:*, epic, and incident l
 
 # 7. Run the first workflow
 uv run kaji issue create --title "..." --body-file issue.md --label type:feature
-uv run kaji run .kaji/wf/dev.yaml <issue-id>
+uv run kaji run .kaji/wf/official/dev.yaml <issue-id>
 ```
 
 GitHub labels (`type:*`, `epic`, and `incident:*`) are not copied by "Use this template", so create them once with
@@ -63,7 +65,7 @@ starts at the `design` step and assumes issue-create / issue-start were done man
 ```bash
 uv run kaji local init
 # then follow the manual issue-create + issue-start steps in the guide above, and:
-uv run kaji run .kaji/wf/dev-local.yaml <issue-id>
+uv run kaji run .kaji/wf/official/local/dev-local.yaml <issue-id>
 ```
 
 ## Documentation

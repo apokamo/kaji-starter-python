@@ -22,7 +22,11 @@ typecheck:
 	mypy $(TYPED)
 
 validate-workflows:
-	uv run kaji validate .kaji/wf/*.yaml
+	@files=$$(git ls-files -- '.kaji/wf' | grep '\.yaml$$'); \
+	if [ -z "$$files" ]; then \
+	  echo "no tracked workflow YAML under .kaji/wf/" >&2; exit 1; \
+	fi; \
+	uv run kaji validate $$files
 
 test:
 	pytest
@@ -46,7 +50,7 @@ help:
 	@echo "Common targets:"
 	@echo "  make check        - lint + format(check) + typecheck + workflow validation + test"
 	@echo "  make fmt          - apply ruff format (mutating)"
-	@echo "  make validate-workflows - validate all tracked workflows"
+	@echo "  make validate-workflows - validate tracked official + custom workflows"
 	@echo "  make test         - pytest (all markers)"
 	@echo "  make test-small   - pytest -m small"
 	@echo "  make test-medium  - pytest -m medium"
