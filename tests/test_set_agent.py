@@ -175,8 +175,8 @@ def test_conversion_is_idempotent(wf_dir: Path) -> None:
 
 @pytest.mark.medium
 def test_other_cli_variant_is_left_alone(wf_dir: Path) -> None:
-    variant = wf_dir / "custom" / "dev" / "dev-gemini.yaml"
-    variant.write_text(CUSTOM_THOROUGH.replace("dev-thorough", "dev-gemini"), encoding="utf-8")
+    variant = wf_dir / "custom" / "dev" / "dev-claude.yaml"
+    variant.write_text(CUSTOM_THOROUGH.replace("dev-thorough", "dev-claude"), encoding="utf-8")
 
     writes, errors, notices = set_agent.plan_conversions(wf_dir, "codex")
 

@@ -51,9 +51,16 @@ uv run kaji validate .kaji/wf/custom/dev/dev-opus.yaml
 
 #### agent CLI の寄せ替え
 
-全 workflow は claude 単騎構成が既定。codex / gemini へ寄せ替えるときは
+全 workflow は claude 単騎構成が既定。codex へ寄せ替えるときは
 `uv run python scripts/set_agent.py <cli>` を使う。この script は上記の所有権契約に従い、
 `official/**` を書き換えずに上記のコピー手順を自動化する。
+
+kaji v0.18.0 で gemini は agent として廃止された（`agent: gemini` は validate も run も通らない）。
+同 version で追加された antigravity は kaji 側では利用できるが、本 template の workflow は
+design / implement 等で `resume:` を使う一方 antigravity は resume を持たないため、
+`set_agent.py` の変換先には含めていない（変換すると `kaji validate` が
+`does not support capability 'resume'` で落ちる）。antigravity を使う場合は `resume:` を
+含まない workflow を `custom/` に自作する。
 
 | 対象 | 挙動 |
 |------|------|

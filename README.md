@@ -16,7 +16,7 @@ Supported environments: Linux / macOS / WSL2 (native Windows is not supported â€
 
 Prerequisites: [uv](https://docs.astral.sh/uv/) / [gh](https://cli.github.com/) /
 an agent CLI (the default is [Claude Code](https://claude.com/claude-code); switch to
-codex / gemini with `scripts/set_agent.py`, which keeps kaji-owned `.kaji/wf/official/**`
+codex with `scripts/set_agent.py`, which keeps kaji-owned `.kaji/wf/official/**`
 read-only and writes the converted variants under `.kaji/wf/custom/**`).
 tmux 3.1+ is required only when using the
 interactive terminal runner (`execution.agent_runner = "interactive_terminal"`); the default

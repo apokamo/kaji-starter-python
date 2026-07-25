@@ -15,7 +15,7 @@
 ## Quickstart
 
 前提: [uv](https://docs.astral.sh/uv/) / [gh](https://cli.github.com/) /
-agent CLI（既定は [Claude Code](https://claude.com/claude-code)。codex / gemini への
+agent CLI（既定は [Claude Code](https://claude.com/claude-code)。codex への
 寄せ替えは `scripts/set_agent.py`。kaji 所有の `.kaji/wf/official/**` は書き換えず、
 変換結果は `.kaji/wf/custom/**` へ生成する）。tmux 3.1+ は interactive terminal runner
 （`execution.agent_runner = "interactive_terminal"`）利用時のみ必要で、既定の headless では不要。
