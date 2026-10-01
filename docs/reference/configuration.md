@@ -15,9 +15,11 @@ kaji の repository 共通設定。設定仕様の正本は kaji 本体の
 | `paths.skill_dir` | `.claude/skills` | skill 正本の置き場 |
 | `execution.default_timeout` | `2400` | step あたりの timeout 秒 |
 | `execution.agent_runner` | `headless` | `interactive_terminal` に変えると tmux pane で agent が動く（tmux 3.1+ 必須） |
+| `execution.interactive_terminal_backend` | 未指定（`tmux`） | `agent_runner = "interactive_terminal"` のときの backend。`tmux`（既定）または `herdr`（Herdr 0.8.2+） |
 | `execution.failure_triage` | `true`（既定） | ERROR / 対象 ABORT を分類し、証跡コメント・artifact・incident 集約を行う |
 | `execution.auto_recover` | `false`（既定） | recovery chain ごと1回の自動再開を許可する opt-in |
-| `provider.type` | `github` | repository 既定の provider |
+| `incident.kind_label` / `initial_status_label` / `transient_label` | `incident` / `incident:investigating` / `incident:cause:transient` | triage が起票する incident Issue のラベル名。kaji v0.21.0 の既定名は `kaji:incident` 系に変わったため、`scripts/setup_labels.sh` が作る旧名を明示している |
+| `provider.type` | `github` | repository 既定の provider（`local` は kaji v0.21.0 で deprecated。警告のみで当面利用可） |
 | `provider.github.repo` | `<owner>/<repo>` | **template 利用時に必ず書き換え、workflow を回す前に commit する**（未 commit のまま実行すると設定変更が最初の feature PR に混入する） |
 | `provider.github.default_branch` | `main` | |
 | `provider.github.git_remote` | `origin` | skill 内 git push / fetch の対象 remote |
@@ -46,6 +48,8 @@ failure triage は既定で有効だが、自動再開は無効。`scripts/setup
 
 machine-local な overlay。`uv run kaji local init` が生成し、provider 切替
 （github ⇄ local）や machine_id を保持する。手書きせず CLI に任せる。commit 禁止。
+`[incident]` は overlay の対象外（tracked の `.kaji/config.toml` のみ読む）。local provider と
+`kaji local init` / `kaji sync` は kaji v0.21.0 で deprecated（stderr に警告。当面は利用可能）。
 
 ## `.env` / `.env.example`
 

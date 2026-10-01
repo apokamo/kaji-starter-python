@@ -129,7 +129,7 @@ artifact が `known_failures` の場合だけ、同じ対象を次の 2 コマ�
 
 ```bash
 cd [worktree_dir] && source .venv/bin/activate && make lint format typecheck
-cd [worktree_dir] && source .venv/bin/activate && python -m kaji_harness.scripts.baseline_precheck --compare
+cd [worktree_dir] && source .venv/bin/activate && python -m kaji_harness.scripts.baseline_precheck --worktree [worktree_dir] --compare
 ```
 
 特定マーカーや変更タイプ固有の検証が必要な場合は、設計書「テスト戦略」に従い追加実行する:

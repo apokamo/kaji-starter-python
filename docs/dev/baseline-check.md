@@ -49,9 +49,11 @@ entrypoint は worktree の `.venv/bin/python` を使い、shell を介さず py
 
 `issue-implement` は artifact を検証し、`measured_commit` が HEAD の ancestor であることを
 確認する。`known_failures` の場合、設計書の変更 scope を次の評価関数へ渡す。
+`--evaluate` / `--compare` の呼び出しでは `--worktree [worktree_dir]` を必ず渡す
+（agent step には `KAJI_WORKTREE_DIR` が注入されない）。
 
 ```bash
-python -m kaji_harness.scripts.baseline_precheck \
+python -m kaji_harness.scripts.baseline_precheck --worktree [worktree_dir] \
   --evaluate --scope src/starter_app/example.py --scope tests/test_example.py
 ```
 
@@ -65,7 +67,7 @@ artifact が `clean` の場合は通常どおり `make check` を使う。`known
 非 pytest gate を全対象へ実行した上で、pytest を次の比較へ置換する。
 
 ```bash
-python -m kaji_harness.scripts.baseline_precheck --compare
+python -m kaji_harness.scripts.baseline_precheck --worktree [worktree_dir] --compare
 ```
 
 コミットを許可するのは、ruff / format / mypy が全 PASS し、`--compare` が

@@ -33,7 +33,7 @@ name: issue-fix-code
 
 | 変数 | 型 | 条件 | 説明 |
 |------|-----|------|------|
-| `previous_verdict` | str | `resume` または `inject_verdict: true` 指定ステップ | 前ステップの verdict |
+| `previous_verdict` | str | `resume` 指定ステップ | 前ステップの verdict |
 | `cycle_count` | int | サイクル内ステップのみ | 現在のイテレーション番号 |
 | `max_iterations` | int | サイクル内ステップのみ | サイクルの上限回数 |
 
@@ -121,7 +121,7 @@ $ARGUMENTS = <issue_id>
    #### 3.2 テスト実行
 
    ```bash
-   cd [worktree_dir] && source .venv/bin/activate && python -m kaji_harness.scripts.baseline_precheck --compare
+   cd [worktree_dir] && source .venv/bin/activate && python -m kaji_harness.scripts.baseline_precheck --worktree [worktree_dir] --compare
    ```
 
    合否判定は `issue-implement` Step 7b と同一とし、`verdict: ok`、regression 0 件を必須とする。
