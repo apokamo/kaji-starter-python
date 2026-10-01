@@ -19,8 +19,9 @@ an agent CLI (the default is [Claude Code](https://claude.com/claude-code); swit
 codex with `scripts/set_agent.py`, which keeps kaji-owned `.kaji/wf/official/**`
 read-only and writes the converted variants under `.kaji/wf/custom/**`).
 tmux 3.1+ is required only when using the
-interactive terminal runner (`execution.agent_runner = "interactive_terminal"`); the default
-`headless` runner does not need it.
+interactive terminal runner (`execution.agent_runner = "interactive_terminal"`) with its default tmux
+backend. With `interactive_terminal_backend = "herdr"`, tmux is not needed and kaji must run inside a
+Herdr 0.8.2+ pane. The default `headless` runner needs neither.
 
 ```bash
 # 1. On GitHub, click "Use this template" to create your own repository, then clone it

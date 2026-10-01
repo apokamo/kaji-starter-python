@@ -14,8 +14,8 @@ kaji の repository 共通設定。設定仕様の正本は kaji 本体の
 | `paths.artifacts_dir` | `.kaji/artifacts` | 実行ログ・run 記録の出力先（gitignored。§ 実行ログの出力先） |
 | `paths.skill_dir` | `.claude/skills` | skill 正本の置き場 |
 | `execution.default_timeout` | `2400` | step あたりの timeout 秒 |
-| `execution.agent_runner` | `headless` | `interactive_terminal` に変えると tmux pane で agent が動く（tmux 3.1+ 必須） |
-| `execution.interactive_terminal_backend` | 未指定（`tmux`） | `agent_runner = "interactive_terminal"` のときの backend。`tmux`（既定）または `herdr`（Herdr 0.8.2+） |
+| `execution.agent_runner` | `headless` | `interactive_terminal` に変えると terminal pane で agent が動く（既定 backend の tmux は tmux 3.1+ のセッション内、`herdr` は Herdr 0.8.2+ の pane 内で実行。`headless` は terminal 不要） |
+| `execution.interactive_terminal_backend` | 未指定（`tmux`） | `agent_runner = "interactive_terminal"` のときの backend。`tmux`（既定、tmux 3.1+ 必須）または `herdr`（Herdr 0.8.2+ の pane 内でのみ起動可。tmux は不要） |
 | `execution.failure_triage` | `true`（既定） | ERROR / 対象 ABORT を分類し、証跡コメント・artifact・incident 集約を行う |
 | `execution.auto_recover` | `false`（既定） | recovery chain ごと1回の自動再開を許可する opt-in |
 | `incident.kind_label` / `initial_status_label` / `transient_label` | `incident` / `incident:investigating` / `incident:cause:transient` | triage が起票する incident Issue のラベル名。kaji v0.21.0 の既定名は `kaji:incident` 系に変わったため、`scripts/setup_labels.sh` が作る旧名を明示している |

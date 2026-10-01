@@ -18,7 +18,8 @@
 agent CLI（既定は [Claude Code](https://claude.com/claude-code)。codex への
 寄せ替えは `scripts/set_agent.py`。kaji 所有の `.kaji/wf/official/**` は書き換えず、
 変換結果は `.kaji/wf/custom/**` へ生成する）。tmux 3.1+ は interactive terminal runner
-（`execution.agent_runner = "interactive_terminal"`）利用時のみ必要で、既定の headless では不要。
+（`execution.agent_runner = "interactive_terminal"`）を既定の tmux backend で使うときのみ必要。
+`interactive_terminal_backend = "herdr"` では tmux 不要で Herdr 0.8.2+ の pane 内で実行する。既定の headless では不要。
 
 ```bash
 # 1. GitHub 上で「Use this template」から自分の repository を作成して clone

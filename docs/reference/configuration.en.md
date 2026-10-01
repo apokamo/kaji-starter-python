@@ -14,8 +14,8 @@ Repository-wide settings for kaji. The authoritative spec for every key lives in
 | `paths.artifacts_dir` | `.kaji/artifacts` | Output location for run logs / records (gitignored; see § Run log output location) |
 | `paths.skill_dir` | `.claude/skills` | Location of the canonical skills |
 | `execution.default_timeout` | `2400` | Per-step timeout in seconds |
-| `execution.agent_runner` | `headless` | Set to `interactive_terminal` to run the agent in a tmux pane (requires tmux 3.1+) |
-| `execution.interactive_terminal_backend` | unset (`tmux`) | Backend used when `agent_runner = "interactive_terminal"`: `tmux` (default) or `herdr` (Herdr 0.8.2+) |
+| `execution.agent_runner` | `headless` | Set to `interactive_terminal` to run the agent in a terminal pane (the default tmux backend must run inside a tmux 3.1+ session; the `herdr` backend must run inside a Herdr 0.8.2+ pane; `headless` needs no terminal) |
+| `execution.interactive_terminal_backend` | unset (`tmux`) | Backend used when `agent_runner = "interactive_terminal"`: `tmux` (default, requires tmux 3.1+) or `herdr` (only starts inside a Herdr 0.8.2+ pane; tmux is not needed) |
 | `execution.failure_triage` | `true` (default) | Classifies ERROR and eligible ABORT results, then records evidence comments, artifacts, and incident aggregation |
 | `execution.auto_recover` | `false` (default) | Opt-in to allow one automatic resume per recovery chain |
 | `incident.kind_label` / `initial_status_label` / `transient_label` | `incident` / `incident:investigating` / `incident:cause:transient` | Label names triage uses for incident Issues. kaji v0.21.0 changed the defaults to the `kaji:incident` family, so the old names created by `scripts/setup_labels.sh` are set explicitly |
