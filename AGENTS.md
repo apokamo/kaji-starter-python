@@ -12,7 +12,7 @@
 
 - コード変更（`src/` / `tests/` / `Makefile` / `pyproject.toml` 等）は
   feature branch (worktree) → `--no-ff` merge。main 直コミット禁止
-  （例外: docs / `.kaji/issues/` / 軽微な設定 → [docs/dev/git-workflow.md](docs/dev/git-workflow.md)）
+  （例外: docs / 軽微な設定 → [docs/dev/git-workflow.md](docs/dev/git-workflow.md)）
 - コード変更を含む commit の前に `source .venv/bin/activate && make check` を必ず通す
   （docs のみのコミットは省略可）
 - Conventional Commits（feat/fix/docs/test/refactor/chore）。merge は `--no-ff` のみ（squash 禁止）

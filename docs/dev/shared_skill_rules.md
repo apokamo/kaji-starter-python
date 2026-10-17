@@ -132,8 +132,12 @@ skill が生成する **commit body**、および **PR description**（`/i-pr` �
 
 ## verdict 出力規約
 
-すべての workflow skill は作業完了時に、verdict を **3 経路**で残す。
-harness は **artifact → comment → stdout** の順で解決する。
+agent が実行する workflow skill は作業完了時に、verdict を **3 経路**で残す。
+harness は **artifact → comment → stdout** の順で解決する。comment 経路では、body 1 行目の
+`kaji-verdict` marker が別 step を指すコメントは候補から除外される（marker の無いコメントは
+従来どおり候補）。exec / exec_script step（例: `baseline-precheck`）は comment 経路を持たず、
+artifact（env `KAJI_VERDICT_PATH`）→ stdout のみで解決する。Issue コメントにだけ verdict を
+残しても採用されない。
 
 1. **作業報告 Issue comment 末尾（fallback）**: 作業報告コメントの末尾に
    `---VERDICT---` block を追記する（verdict 専用コメントは新設しない）
