@@ -78,7 +78,7 @@ steps:
 def wf_dir(tmp_path: Path) -> Path:
     """starter と同じ official / custom レイアウトの workflow tree を作る。"""
     root = tmp_path / ".kaji" / "wf"
-    (root / "official" / "local").mkdir(parents=True)
+    (root / "official").mkdir(parents=True)
     (root / "custom" / "dev").mkdir(parents=True)
     (root / "official" / "dev.yaml").write_text(OFFICIAL_DEV, encoding="utf-8")
     (root / "custom" / "dev" / "dev-thorough.yaml").write_text(CUSTOM_THOROUGH, encoding="utf-8")

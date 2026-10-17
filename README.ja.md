@@ -7,7 +7,7 @@
 
 - Python project 骨格（`src/` layout / `uv` / `ruff` / `mypy` / `pytest` / `Makefile`）
 - kaji 導入済み（dev dependency。`uv run kaji` で実行）
-- workflow YAML 5 本（GitHub provider 3 本 + local provider 2 本、claude 単騎構成）
+- workflow YAML 3 本（GitHub provider、claude 単騎構成）
 - 汎用化済み skills 24 本（`.claude/skills/`。Claude 以外の agent は `.agents/skills/` 経由で参照。検証済み Issue 直列計画を作る `/series-create` を含む）
 
 対応環境: Linux / macOS / WSL2（native Windows は対象外。WSL2 を利用してください）。
@@ -17,9 +17,10 @@
 前提: [uv](https://docs.astral.sh/uv/) / [gh](https://cli.github.com/) /
 agent CLI（既定は [Claude Code](https://claude.com/claude-code)。codex への
 寄せ替えは `scripts/set_agent.py`。kaji 所有の `.kaji/wf/official/**` は書き換えず、
-変換結果は `.kaji/wf/custom/**` へ生成する）。tmux 3.1+ は interactive terminal runner
-（`execution.agent_runner = "interactive_terminal"`）を既定の tmux backend で使うときのみ必要。
-`interactive_terminal_backend = "herdr"` では tmux 不要で Herdr 0.8.2+ の pane 内で実行する。既定の headless では不要。
+変換結果は `.kaji/wf/custom/**` へ生成する）。既定の headless runner では terminal は不要。
+interactive terminal runner（`execution.agent_runner = "interactive_terminal"`）を使う場合は
+`interactive_terminal_backend = "herdr"` を設定し、Herdr 0.8.2+ の pane 内で実行する（tmux 不要）。
+tmux backend（未指定時の既定、tmux 3.1+ 必須）は kaji v0.23.0 で deprecated となり、後続 release で削除される。
 
 ```bash
 # 1. GitHub 上で「Use this template」から自分の repository を作成して clone
@@ -54,17 +55,6 @@ uv run kaji run .kaji/wf/official/dev.yaml <issue-id>
 
 GitHub ラベル（`type:*`、`epic`、`incident:*`）は template では複製されないため、`scripts/setup_labels.sh` で
 一度だけ作成する（workflow の起票がこのラベルに依存する）。
-
-GitHub 連携なしで試す場合は local provider を使う。`dev.yaml` と違い `dev-local.yaml` は
-`design` step から始まり、issue-create / issue-start を手動実行済みであることが前提
-（worktree 作成が必要）。手動 issue-start の手順は
-[docs/dev/kaji-workflow.md](docs/dev/kaji-workflow.md)（§ local provider での issue-create / issue-start）を参照:
-
-```bash
-uv run kaji local init
-# 上記ガイドの手動 issue-create + issue-start 手順を実施してから:
-uv run kaji run .kaji/wf/official/local/dev-local.yaml <issue-id>
-```
 
 ## Documentation
 

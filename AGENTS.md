@@ -30,6 +30,6 @@
 ## kaji workflow の最小前提
 
 - kaji は project-local 導入。CLI は `uv run kaji ...` で実行する
-- workflow 実行: `uv run kaji run .kaji/wf/official/dev.yaml <issue-id>`（5 本の使い分けは
+- workflow 実行: `uv run kaji run .kaji/wf/official/dev.yaml <issue-id>`（3 本の使い分けは
   [docs/dev/kaji-workflow.md](docs/dev/kaji-workflow.md)）
-- interactive terminal runner を使う場合は backend に合わせた環境で実行する（既定の tmux は tmux 3.1+ のセッション内、`herdr` は Herdr 0.8.2+ の pane 内。`headless` は不要）
+- interactive terminal runner を使う場合は `interactive_terminal_backend = "herdr"` で Herdr 0.8.2+ の pane 内から実行する（tmux backend は kaji v0.23.0 で deprecated。`headless` は terminal 不要）

@@ -1,6 +1,6 @@
 # kaji Workflow
 
-workflow 5 本の使い分け・skill lifecycle・完了確認の分担。
+workflow 3 本の使い分け・skill lifecycle・完了確認の分担。
 
 複数 Issue の直列実行計画は `/series-create` で `.kaji/series/<id>.yaml` を生成し、`uv run kaji run-series` で実行する。skill は validate と dry-run まで行い、実行自体は開始しない。
 
@@ -11,16 +11,14 @@ kaji v0.16.0 では workflow failure triage が既定で有効で、失敗分類
 1. `.kaji/config.toml` の `provider.github.repo` を自分の repo に書き換える。`AGENTS.md` の `<project-name>` を埋める。LICENSE は自分のプロジェクトのものに差し替えてよい（starter は 0BSD で帰属義務なし）。package を rename する場合はここで行う
 2. `uv sync` → `make check` を実行（rename すると `uv.lock` が再生成される）
 3. 上記をまとめて `git commit` して main へ反映する（`uv sync` の後に commit することで `uv.lock` 差分も含まれる。未 commit のまま workflow を回すと最初の feature PR に混入する）
-4. `scripts/setup_labels.sh` で workflow が使う `type:*`、`epic`、`incident:*` ラベルを作成する（GitHub ラベルは template 複製されないため）。local provider のみで使う場合は不要
+4. `scripts/setup_labels.sh` で workflow が使う `type:*`、`epic`、`incident:*` ラベルを作成する（GitHub ラベルは template 複製されないため）
 
-## workflow 5 本の使い分け
+## workflow 3 本の使い分け
 
 | workflow | provider | 用途 |
 |----------|----------|------|
 | `.kaji/wf/official/dev.yaml` | github | 開発作業の標準。Issue → 設計 → 実装 → レビュー → PR → close |
 | `.kaji/wf/official/docs.yaml` | github | docs-only 変更。doc-update → doc-review → PR → close |
-| `.kaji/wf/official/local/dev-local.yaml` | local | GitHub 連携なしの開発 workflow（PR concept なし） |
-| `.kaji/wf/official/local/docs-local.yaml` | local | GitHub 連携なしの docs workflow（PR concept なし） |
 | `.kaji/wf/custom/dev/dev-thorough.yaml` | github | dev と同じ遷移グラフで設計・実装の effort を上げた丁寧版 |
 
 ```bash
@@ -79,38 +77,6 @@ uv run kaji run .kaji/wf/custom/dev/dev-codex.yaml <issue-id>
 リポジトリの資産として管理する（`make validate-workflows` は tracked な custom も検証する）。
 契約遵守は `tests/test_set_agent.py`（official を書き換えない・派生の生成・手動管理ファイルの不変性・
 冪等性）で固定している。
-
-- provider と workflow は一致させる（github provider で `dev-local.yaml` を実行しない。
-  不一致は kaji が fail-fast で reject する）
-- local provider の初期化は `uv run kaji local init`
-
-### local provider での issue-create / issue-start（dev-local / docs-local の前提）
-
-github 系（`dev.yaml` / `docs.yaml`）は `review-ready` → `start` を workflow 内で実行するが、
-**local 系（`dev-local.yaml` / `docs-local.yaml`）は `design`（または `doc-update`）から始まり、
-`issue-create` / `issue-start` は手動実行済みが前提**。local で回す前に次を実施する。
-
-```bash
-# 1. issue を local provider 配下で作成
-uv run kaji issue create --title "..." --body-file issue.md --label type:feature
-# → local-<machine>-<n> の issue id が返る
-
-# 2. issue-start 相当（worktree 作成 + venv / overlay symlink + NOTE 追記）
-MAIN=$(git rev-parse --show-toplevel)
-BRANCH=$(uv run kaji issue context <issue-id> -q '.branch_name')
-WT=$(uv run kaji issue context <issue-id> -q '.worktree_dir')
-git worktree add -b "$BRANCH" "$WT" main
-ln -s "$MAIN/.venv" "$WT/.venv"
-# config.local.toml は gitignored で worktree に転写されないため symlink 必須
-# （無いと worktree 内 kaji が github 既定で動き local-* id を拒否する）
-[ -f "$MAIN/.kaji/config.local.toml" ] && ln -sf "$MAIN/.kaji/config.local.toml" "$WT/.kaji/config.local.toml"
-uv run kaji issue prepend-note <issue-id> --worktree "$(basename "$WT")" --branch "$BRANCH" --commit
-
-# 3. workflow 実行
-uv run kaji run .kaji/wf/official/local/dev-local.yaml <issue-id>
-```
-
-各手順の詳細は `.claude/skills/issue-start/SKILL.md` を参照。
 
 ## skill lifecycle
 

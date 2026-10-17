@@ -61,13 +61,24 @@ AI の仮定は provenance で区別する。記述を補えば直る不備は `
 `grill-me` は workflow 外の有人 front-load であり、未決を質問して Issue 本文へ固定する。
 後続3 skill は無人 workflow 内でその決定を検査・伝播し、新たな人間判断を代行しない。
 
+## 実行期限と checkpoint（共通）
+
+agent step の hard deadline は延長されず、prompt のコンテキスト変数 `attempt_deadline_utc` /
+`step_timeout_seconds` で確認できる。長時間処理を行う skill は残時間を確認し、期限内に
+完了できない場合は外部副作用を完了してから最後に verdict を保存する。status は prompt の status 候補内に限る。
+規則の書き方は kaji 本体の [skill-authoring.md](https://github.com/apokamo/kaji/blob/main/docs/dev/skill-authoring.md)
+§ 実行期限と期限前 checkpoint を参照する。実装中の期限前 checkpoint は `issue-implement` Step 1.5、
+設計段階の長時間 acceptance の配置規則は `issue-design` / `issue-review-design` が持つ。
+
 ## スキル実体
 
 - 実体: `.claude/skills/`
 - 互換導線: `.agents/skills/` の symlink（Claude 以外の agent 向け）
 
-新規スキル追加や改名時は `.claude/skills/` を先に更新し、必要なら `.agents/skills/` に
-symlink を追加する。
+新規スキル追加や改名時は `.claude/skills/` を先に更新し、`.agents/skills/` に symlink を追加する。
+codex step で使う skill では `.agents/skills/<skill>/SKILL.md` が必須で、欠けていると `kaji run` /
+`kaji validate` の preflight がエラーにする（`scripts/set_agent.py` で codex へ寄せ替える場合も同様。
+`exec_script` の `baseline-precheck` は対象外）。
 
 ## auto close keyword 回避規約
 

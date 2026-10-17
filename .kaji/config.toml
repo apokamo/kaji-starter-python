@@ -5,11 +5,12 @@
 [paths]
 artifacts_dir = ".kaji/artifacts"
 skill_dir = ".claude/skills"
+# design_dir = "designs/issues"     # 設計書 directory。未設定 = 既定 "draft/design"
 
 [execution]
 default_timeout = 2400
-agent_runner = "headless"           # "headless"（既定） | "interactive_terminal"（既定 backend の tmux は 3.1+ 必須）
-# interactive_terminal_backend = "tmux"  # "tmux"（既定） | "herdr"（Herdr 0.8.2+ の pane 内で実行。interactive_terminal のときのみ作用）
+agent_runner = "headless"           # "headless"（既定） | "interactive_terminal"（backend は下記。herdr を推奨）
+# interactive_terminal_backend = "herdr"  # "herdr"（Herdr 0.8.2+ の pane 内で実行） | "tmux"（未指定時の既定。kaji v0.23.0 で deprecated・後続 release で削除予定）。interactive_terminal のときのみ作用
 # failure_triage = true             # 失敗分類・証跡コメント・incident 集約（既定 true）
 # auto_recover = false              # recovery chain ごと1回の自動再開を許可（強い副作用のため opt-in）
 
@@ -20,8 +21,7 @@ kind_label = "incident"
 initial_status_label = "incident:investigating"
 transient_label = "incident:cause:transient"
 
-# Repository default. local provider は kaji v0.21.0 で deprecated（警告のみ・当面利用可）。試す場合は `uv run kaji local init` で
-# .kaji/config.local.toml (gitignored) overlay を作って切り替える。
+# Repository default. kaji は GitHub provider のみをサポートする（local provider は kaji v0.23.0 で削除）。
 [provider]
 type = "github"
 

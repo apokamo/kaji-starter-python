@@ -28,8 +28,8 @@ name: issue-review-design
 
 | 変数 | 型 | 説明 |
 |------|-----|------|
-| `issue_id` | str | 正規化済み Issue ID（GitHub 数値または local ID） |
-| `issue_ref` | str | 人間可読の Issue 参照（GitHub では `#<issue_id>`、local では bare ID） |
+| `issue_id` | str | 正規化済み Issue ID（GitHub 数値） |
+| `issue_ref` | str | 人間可読の Issue 参照（GitHub では `#<issue_id>`） |
 | `step_id` | str | 現在のステップ ID |
 
 **条件付きで注入される変数:**
@@ -50,7 +50,7 @@ $ARGUMENTS = <issue_id>
 コンテキスト変数 `issue_id` が存在すればそちらを使用。
 なければ `$ARGUMENTS` の第1引数を `issue_id` として使用。
 
-`issue_ref` はハーネス経由ではプロンプトに自動注入される（`prompt.py` 側で provider 別に整形）。手動実行時は `issue_id` から導出する: GitHub 数値 ID なら `#<issue_id>`、`local-*` 形式なら bare ID（`#` を付けない）。
+`issue_ref` はハーネス経由ではプロンプトに自動注入される（`prompt.py` 側で provider 別に整形）。手動実行時は `issue_id` から `#<issue_id>` を導出する。
 
 ## 前提知識の読み込み
 
@@ -270,6 +270,7 @@ uv run kaji issue view [issue_id] --json labels --jq '[.labels[].name] | map(sel
      - [ ] 恒久テストを追加しない場合、その理由が「docs-only / metadata-only / packaging-only 変更」節の 4 条件に沿って示されているか
      - [ ] スキップ時のエビデンス（既存テスト名、外部保証、確認内容）が記載されているか
      - [ ] `uv pip install -e .` など副作用のある検証を行う場合、隔離方針が明記されているか
+     - [ ] 「長時間 acceptance の配置」小節があるか。対象（nested full workflow・外部 agent を含む dogfood・fresh 環境での反復 acceptance・1 回の所要見積が配置先 step の timeout の 25% 超の検証）がある場合、(a) 配置先 step の attempt 全体が timeout 内に収まる数値根拠（実装・検証・acceptance 実行回数上限 × 所要見積・報告時間・予備時間 R の合計 ≤ timeout）か、(b) 独立 acceptance step / 別 workflow への分離（分離先と証跡化場所）のいずれかがあるか。対象があるのにどちらもない設計は Changes Requested（`RETRY`）。対象なしの場合は「該当なし」の根拠があるか
    - **原則として新規テストを要求する変更**（`testing-convention.md` の「実行時の振る舞いを変える変更」節参照）: ドメインロジック追加・条件分岐追加・データ変換仕様変更・API 契約変更・過去障害の再発防止。これらに該当する変更でテストを省略している場合は Changes Requested
    - **不正当な省略理由**（「省略してはいけない理由」節に該当する場合は Changes Requested）:
      - 「実行時間が長い」「Large テストはステージングで検証」など → サンプル期間等で短縮可能 / CI で再現できる構成にすること

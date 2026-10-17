@@ -7,7 +7,7 @@ issue-driven development workflow (design → implement → review → PR) from 
 
 - Python project skeleton (`src/` layout / `uv` / `ruff` / `mypy` / `pytest` / `Makefile`)
 - kaji preinstalled (as a dev dependency; run it with `uv run kaji`)
-- Five workflow YAMLs (3 for the GitHub provider + 2 for the local provider, claude single-agent setup)
+- Three workflow YAMLs (GitHub provider, claude single-agent setup)
 - 24 generalized skills (`.claude/skills/`; non-Claude agents reference them via `.agents/skills/`), including `/series-create` for validated sequential Issue plans
 
 Supported environments: Linux / macOS / WSL2 (native Windows is not supported — use WSL2).
@@ -18,10 +18,10 @@ Prerequisites: [uv](https://docs.astral.sh/uv/) / [gh](https://cli.github.com/) 
 an agent CLI (the default is [Claude Code](https://claude.com/claude-code); switch to
 codex with `scripts/set_agent.py`, which keeps kaji-owned `.kaji/wf/official/**`
 read-only and writes the converted variants under `.kaji/wf/custom/**`).
-tmux 3.1+ is required only when using the
-interactive terminal runner (`execution.agent_runner = "interactive_terminal"`) with its default tmux
-backend. With `interactive_terminal_backend = "herdr"`, tmux is not needed and kaji must run inside a
-Herdr 0.8.2+ pane. The default `headless` runner needs neither.
+The default `headless` runner needs no terminal. To use the interactive terminal runner
+(`execution.agent_runner = "interactive_terminal"`), set `interactive_terminal_backend = "herdr"` and
+run kaji inside a Herdr 0.8.2+ pane (tmux is not needed). The tmux backend (the default when unset,
+requires tmux 3.1+) is deprecated since kaji v0.23.0 and will be removed in a subsequent release.
 
 ```bash
 # 1. On GitHub, click "Use this template" to create your own repository, then clone it
@@ -57,17 +57,6 @@ uv run kaji run .kaji/wf/official/dev.yaml <issue-id>
 
 GitHub labels (`type:*`, `epic`, and `incident:*`) are not copied by "Use this template", so create them once with
 `scripts/setup_labels.sh` (the workflow's issue creation depends on these labels).
-
-To try it without GitHub, use the local provider. Unlike `dev.yaml`, `dev-local.yaml`
-starts at the `design` step and assumes issue-create / issue-start were done manually
-(worktree creation is required). See the manual issue-start steps in
-[docs/dev/kaji-workflow.md](docs/dev/kaji-workflow.md) (§ local provider issue-create / issue-start):
-
-```bash
-uv run kaji local init
-# then follow the manual issue-create + issue-start steps in the guide above, and:
-uv run kaji run .kaji/wf/official/local/dev-local.yaml <issue-id>
-```
 
 ## Documentation
 

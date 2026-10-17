@@ -10,7 +10,7 @@ agent 向けの最小ルールは [AGENTS.md](../AGENTS.md) にあり、詳細�
 | [change-types-and-gates.md](dev/change-types-and-gates.md) | 変更種別ごとの required gate（`make check` / `make verify-docs` 等） |
 | [testing-convention.md](dev/testing-convention.md) | Small / Medium / Large テスト規約と恒久テスト追加の判断基準 |
 | [git-workflow.md](dev/git-workflow.md) | branch / commit / merge 運用 |
-| [kaji-workflow.md](dev/kaji-workflow.md) | workflow 5 本の使い分け・skill lifecycle・完了確認の分担 |
+| [kaji-workflow.md](dev/kaji-workflow.md) | workflow 3 本の使い分け・skill lifecycle・完了確認の分担 |
 | [shared_skill_rules.md](dev/shared_skill_rules.md) | skill 間の責務境界と verdict 出力規約 |
 | [documentation_update_criteria.md](dev/documentation_update_criteria.md) | docs 更新要否の判断基準 |
 | [baseline-check.md](dev/baseline-check.md) | 変更前 pytest artifact・停止基準・regression 比較の正本 |
@@ -26,7 +26,7 @@ agent 向けの最小ルールは [AGENTS.md](../AGENTS.md) にあり、詳細�
 
 ## 外部ドキュメント
 
-- kaji 本体（CLI 仕様・workflow 記法・local mode の正本）: <https://github.com/apokamo/kaji>
+- kaji 本体（CLI 仕様・workflow 記法の正本）: <https://github.com/apokamo/kaji>
 - starter の利用ガイド（セットアップ・カスタマイズ）:
   <https://github.com/apokamo/kaji/blob/main/docs/guides/python-starter.md>
   （[日本語](https://github.com/apokamo/kaji/blob/main/docs/guides/python-starter.ja.md)）
